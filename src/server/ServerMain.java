@@ -2,7 +2,6 @@ package server;
 
 import managers.CollectionManager;
 import managers.FileManager;
-import network.CommandRequest;
 import network.CommandResponse;
 import network.SerializationUtils;
 
@@ -11,8 +10,6 @@ import java.io.InputStreamReader;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.SocketTimeoutException;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -38,20 +35,19 @@ public class ServerMain {
         try (DatagramSocket socket = new DatagramSocket(port);
              BufferedReader console = new BufferedReader(new InputStreamReader(System.in))) {
             socket.setSoTimeout(500);
-            Set<String> clients = new HashSet<>();
+            ConnectionReceiver connectionReceiver = new ConnectionReceiver(logger);
+            RequestReader requestReader = new RequestReader();
+            ResponseSender responseSender = new ResponseSender();
             byte[] buffer = new byte[SerializationUtils.BUFFER_SIZE];
             boolean running = true;
             while (running) {
                 try {
                     DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                     socket.receive(packet);
-                    String client = packet.getAddress().getHostAddress() + ":" + packet.getPort();
-                    if (clients.add(client)) logger.info("New connection from " + client);
+                    String client = connectionReceiver.register(packet);
                     logger.info("Request received from " + client);
-                    CommandResponse response = handlePacket(processor, packet);
-                    byte[] responseBytes = SerializationUtils.serialize(response);
-                    DatagramPacket responsePacket = new DatagramPacket(responseBytes, responseBytes.length, packet.getAddress(), packet.getPort());
-                    socket.send(responsePacket);
+                    CommandResponse response = processRequest(processor, requestReader, packet);
+                    responseSender.send(socket, packet, response);
                     logger.info("Response sent to " + client);
                 } catch (SocketTimeoutException ignored) {
                     if (console.ready()) {
@@ -71,11 +67,9 @@ public class ServerMain {
         if (saved.compareAndSet(false, true)) fileManager.save(collectionManager.getCollection());
     }
 
-    private static CommandResponse handlePacket(ServerCommandProcessor processor, DatagramPacket packet) {
+    private static CommandResponse processRequest(ServerCommandProcessor processor, RequestReader requestReader, DatagramPacket packet) {
         try {
-            Object object = SerializationUtils.deserialize(packet.getData(), packet.getLength());
-            if (!(object instanceof CommandRequest request)) return new CommandResponse(false, "Error: invalid request object");
-            return processor.process(request);
+            return processor.process(requestReader.read(packet));
         } catch (Exception e) {
             logger.log(Level.WARNING, "Failed to process request", e);
             return new CommandResponse(false, "Error: failed to read request: " + e.getMessage());

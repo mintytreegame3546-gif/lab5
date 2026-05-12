@@ -42,7 +42,8 @@ public class ClientMain {
                     System.out.println("Goodbye");
                     break;
                 }
-                if (line.startsWith("save")) {
+                String commandName = line.split("\\s+", 2)[0];
+                if ("save".equals(commandName)) {
                     System.out.println("Error: save is a server-only command");
                     continue;
                 }

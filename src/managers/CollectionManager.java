@@ -28,10 +28,4 @@ public class CollectionManager {
     public void info() {
         System.out.println(getInfo());
     }
-
-    public LinkedList<Organization> sortedByName() {
-        return collection.stream()
-                .sorted(Comparator.comparing(Organization::getName))
-                .collect(Collectors.toCollection(LinkedList::new));
-    }
 }
