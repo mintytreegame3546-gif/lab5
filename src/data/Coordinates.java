@@ -1,6 +1,9 @@
 package data;
 
-public class Coordinates {
+import java.io.Serializable;
+
+public class Coordinates implements Serializable {
+    private static final long serialVersionUID = 1L;
     private final Long x;
     private final Double y;
 
