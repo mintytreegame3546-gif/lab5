@@ -1,6 +1,9 @@
 package data;
 
-public class Address implements Comparable<Address> {
+import java.io.Serializable;
+
+public class Address implements Comparable<Address>, Serializable {
+    private static final long serialVersionUID = 1L;
     private final String street;
     private final String zipCode;
 
