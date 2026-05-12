@@ -5,6 +5,7 @@ import data.Organization;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.LinkedList;
+import java.util.stream.Collectors;
 
 public class CollectionManager {
     private final LinkedList<Organization> collection = new LinkedList<>();
@@ -26,5 +27,11 @@ public class CollectionManager {
 
     public void info() {
         System.out.println(getInfo());
+    }
+
+    public LinkedList<Organization> sortedByName() {
+        return collection.stream()
+                .sorted(Comparator.comparing(Organization::getName))
+                .collect(Collectors.toCollection(LinkedList::new));
     }
 }
