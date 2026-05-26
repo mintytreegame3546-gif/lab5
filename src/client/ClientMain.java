@@ -47,22 +47,44 @@ public class ClientMain {
                     System.out.println("Error: save is a server-only command");
                     continue;
                 }
-                sendLine(channel, server, inputManager, line);
+                sendLine(channel, server, inputManager, scanner, line);
             }
         }
     }
 
-    private static void sendLine(DatagramChannel channel, InetSocketAddress server, InputManager inputManager, String line) throws Exception {
+    private static void sendLine(DatagramChannel channel, InetSocketAddress server, InputManager inputManager, Scanner scanner, String line) throws Exception {
         String[] tokens = line.split("\\s+");
         String name = tokens[0];
         String[] args = Arrays.copyOfRange(tokens, 1, tokens.length);
         Organization organization = ORGANIZATION_COMMANDS.contains(name) ? inputManager.readOrganization(0) : null;
+
+        if ("update".equals(name) && args.length > 0) {
+            sendUpdateWithRetry(channel, server, scanner, args[0], organization);
+            return;
+        }
+
         CommandResponse response = sendRequest(channel, server, new CommandRequest(name, args, organization));
         if (response == null) {
             System.out.println("Server is temporarily unavailable. Please try again later.");
             return;
         }
         System.out.println(response.getMessage());
+    }
+
+    private static void sendUpdateWithRetry(DatagramChannel channel, InetSocketAddress server, Scanner scanner, String id, Organization organization) throws Exception {
+        while (true) {
+            CommandResponse response = sendRequest(channel, server, new CommandRequest("update", new String[]{id}, organization));
+            if (response == null) {
+                System.out.println("Server is temporarily unavailable. Please try again later.");
+                return;
+            }
+            System.out.println(response.getMessage());
+            if (!response.getMessage().contains("not found")) return;
+            System.out.print("Enter an existing ID for update (or empty to cancel): ");
+            String input = scanner.nextLine().trim();
+            if (input.isEmpty()) return;
+            id = input;
+        }
     }
 
     private static CommandResponse sendRequest(DatagramChannel channel, InetSocketAddress server, CommandRequest request) throws Exception {
