@@ -10,8 +10,13 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
 
 public class ClientMain {
@@ -50,16 +55,47 @@ public class ClientMain {
     private static void sendCommand(DatagramChannel channel, InetSocketAddress server, InputManager inputManager, String[] tokens) throws Exception {
         String name = tokens[0];
         String[] args = Arrays.copyOfRange(tokens, 1, tokens.length);
-        CommandResponse response = sendRequest(channel, server, new CommandRequest(name, args, null));
+        Map<String, List<String>> scripts = "execute_script".equals(name) ? readScriptBundle(args) : Map.of();
+        if (scripts == null) return;
+        CommandResponse response = sendRequest(channel, server, new CommandRequest(name, args, null, scripts));
         if (response == null) return;
 
         if (!response.isSuccess() && "Error: organization payload is required".equals(response.getMessage())) {
             Organization organization = inputManager.readOrganization(0);
-            response = sendRequest(channel, server, new CommandRequest(name, args, organization));
+            response = sendRequest(channel, server, new CommandRequest(name, args, organization, scripts));
             if (response == null) return;
         }
 
         System.out.println(response.getMessage());
+    }
+
+    private static Map<String, List<String>> readScriptBundle(String[] args) {
+        if (args.length == 0) {
+            System.out.println("Error: file_name is required");
+            return null;
+        }
+        String root = args[0];
+        Map<String, List<String>> scripts = new HashMap<>();
+        try {
+            loadScript(root, scripts, 1);
+            return scripts;
+        } catch (Exception e) {
+            System.out.println("Error reading script: " + e.getMessage());
+            return null;
+        }
+    }
+
+    private static void loadScript(String fileName, Map<String, List<String>> scripts, int depth) throws Exception {
+        if (scripts.containsKey(fileName) || depth > 5) return;
+        List<String> lines = Files.readAllLines(Path.of(fileName));
+        scripts.put(fileName, lines);
+        for (String raw : lines) {
+            String line = raw.trim();
+            if (line.isEmpty()) continue;
+            String[] tokens = line.split("\\s+");
+            if (!"execute_script".equals(tokens[0]) || tokens.length < 2) continue;
+            loadScript(tokens[1], scripts, depth + 1);
+        }
     }
 
     private static CommandResponse sendRequest(DatagramChannel channel, InetSocketAddress server, CommandRequest request) throws Exception {
