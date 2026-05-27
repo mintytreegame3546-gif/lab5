@@ -23,7 +23,6 @@ public class CommandResponse implements Serializable {
         this.organizations = new ArrayList<>(organizations);
     }
 
-    public boolean isSuccess() { return success; }
     public String getMessage() { return message; }
     public List<Organization> getOrganizations() { return new ArrayList<>(organizations); }
 }
