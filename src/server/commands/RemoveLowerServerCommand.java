@@ -16,6 +16,8 @@ public class RemoveLowerServerCommand implements ServerCommand {
     public String getDescription() { return "Remove all organizations whose annual turnover is lower than the given organization"; }
 
     public CommandResponse execute(CommandRequest request) {
+        String validation = ServerCommandSupport.validateOrganization(request.getOrganization());
+        if (validation != null) return new CommandResponse(false, validation);
         Organization org = request.getOrganization();
         long before = collectionManager.getCollection().size();
         collectionManager.getCollection().removeIf(o -> o.compareTo(org) < 0);
