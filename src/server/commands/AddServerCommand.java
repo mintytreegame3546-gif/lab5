@@ -16,6 +16,8 @@ public class AddServerCommand implements ServerCommand {
     public String getDescription() { return "Add a new organization"; }
 
     public CommandResponse execute(CommandRequest request) {
+        String validation = ServerCommandSupport.validateOrganization(request.getOrganization());
+        if (validation != null) return new CommandResponse(false, validation);
         Organization org = ServerCommandSupport.withServerFields(request.getOrganization(), collectionManager.generateId());
         collectionManager.add(org);
         return new CommandResponse(true, "Organization added with ID " + org.getId());
