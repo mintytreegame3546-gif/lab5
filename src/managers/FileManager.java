@@ -36,11 +36,24 @@ public class FileManager {
                 String[] p = sc.nextLine().split(";");
                 if (p.length < 9) continue;
                 long id = Long.parseLong(p[0]);
-                cm.add(new Organization(id, p[1], new Coordinates(Long.parseLong(p[2]), Double.parseDouble(p[3])),
+                Organization org = new Organization(id, p[1], new Coordinates(Long.parseLong(p[2]), Double.parseDouble(p[3])),
                         LocalDateTime.parse(p[4]), Float.parseFloat(p[5]), p[6].isEmpty() ? null : OrganizationType.valueOf(p[6]),
-                        new Address(p[7].isEmpty() ? null : p[7], p[8].isEmpty() ? null : p[8])));
-                cm.setNextId(id);
+                        new Address(p[7].isEmpty() ? null : p[7], p[8].isEmpty() ? null : p[8]));
+                if (isValid(org)) {
+                    cm.add(org);
+                    cm.setNextId(id);
+                }
             }
         } catch (Exception e) { System.out.println("error loading: " + e.getMessage()); }
+    }
+
+    private boolean isValid(Organization org) {
+        if (org.getId() <= 0) return false;
+        if (org.getName() == null || org.getName().trim().isEmpty()) return false;
+        if (org.getCoordinates() == null || org.getCoordinates().getX() == null || org.getCoordinates().getY() == null) return false;
+        if (org.getCoordinates().getX() > 90L) return false;
+        if (org.getCoordinates().getY() > 117.0) return false;
+        if (org.getAnnualTurnover() <= 0) return false;
+        return org.getOfficialAddress() != null;
     }
 }
