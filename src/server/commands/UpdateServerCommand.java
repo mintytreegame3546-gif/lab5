@@ -16,8 +16,13 @@ public class UpdateServerCommand implements ServerCommand {
 
     public CommandResponse execute(CommandRequest request) {
         String[] args = request.getArgs();
-        if (args.length == 0) return new CommandResponse(false, "Error Please enter a valid ID");
-        long id = Long.parseLong(args[0]);
+        if (args.length == 0) return new CommandResponse(false, "Error: Please enter a valid ID");
+        long id;
+        try {
+            id = Long.parseLong(args[0]);
+        } catch (NumberFormatException e) {
+            return new CommandResponse(false, "Error: Please enter a valid ID");
+        }
         boolean exists = collectionManager.getCollection().stream().anyMatch(o -> o.getId() == id);
         if (!exists) return new CommandResponse(false, "Error Organization with ID " + id + " not found!");
         collectionManager.getCollection().removeIf(o -> o.getId() == id);

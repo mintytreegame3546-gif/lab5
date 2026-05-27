@@ -58,8 +58,9 @@ public class ClientMain {
         String[] args = Arrays.copyOfRange(tokens, 1, tokens.length);
         Organization organization = ORGANIZATION_COMMANDS.contains(name) ? inputManager.readOrganization(0) : null;
 
-        if ("update".equals(name) && args.length > 0) {
-            sendUpdateWithRetry(channel, server, scanner, args[0], organization);
+        if ("update".equals(name)) {
+            String id = args.length > 0 ? args[0] : "";
+            sendUpdateWithRetry(channel, server, scanner, id, organization);
             return;
         }
 
@@ -73,14 +74,15 @@ public class ClientMain {
 
     private static void sendUpdateWithRetry(DatagramChannel channel, InetSocketAddress server, Scanner scanner, String id, Organization organization) throws Exception {
         while (true) {
-            CommandResponse response = sendRequest(channel, server, new CommandRequest("update", new String[]{id}, organization));
+            String[] requestArgs = id.isEmpty() ? new String[0] : new String[]{id};
+            CommandResponse response = sendRequest(channel, server, new CommandRequest("update", requestArgs, organization));
             if (response == null) {
                 System.out.println("Server is temporarily unavailable. Please try again later.");
                 return;
             }
             System.out.println(response.getMessage());
-            if (!response.getMessage().contains("not found")) return;
-            System.out.print("Enter an existing ID for update (or empty to cancel): ");
+            if (!(response.getMessage().contains("not found") || response.getMessage().contains("valid ID"))) return;
+            System.out.print("Enter a valid existing ID for update (or empty to cancel): ");
             String input = scanner.nextLine().trim();
             if (input.isEmpty()) return;
             id = input;
