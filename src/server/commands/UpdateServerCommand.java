@@ -25,7 +25,9 @@ public class UpdateServerCommand implements ServerCommand {
         }
         boolean exists = collectionManager.getCollection().stream().anyMatch(o -> o.getId() == id);
         if (!exists) return new CommandResponse(false, "Error Organization with ID " + id + " not found!");
-        if (request.getOrganization() == null) return new CommandResponse(true, "ID is valid");
+        if (request.getOrganization() == null) return new CommandResponse(false, "Error: organization payload is required");
+        String validation = ServerCommandSupport.validateOrganization(request.getOrganization());
+        if (validation != null) return new CommandResponse(false, validation);
         collectionManager.getCollection().removeIf(o -> o.getId() == id);
         collectionManager.add(ServerCommandSupport.withServerFields(request.getOrganization(), id));
         return new CommandResponse(true, "Organization with ID " + id + " updated!");
