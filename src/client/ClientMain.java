@@ -59,7 +59,7 @@ public class ClientMain {
                     System.out.println("Server is temporarily unavailable. Please try again later.");
                     return;
                 }
-                if ("ID is valid".equals(validation.getMessage())) break;
+                if (validation.isSuccess()) break;
                 System.out.println(validation.getMessage());
                 System.out.print("Enter a valid existing ID for update (or empty to cancel): ");
                 String input = scanner.nextLine().trim();
