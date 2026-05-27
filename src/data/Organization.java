@@ -1,8 +1,10 @@
 package data;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 
-public class Organization implements Comparable<Organization> {
+public class Organization implements Comparable<Organization>, Serializable {
+    private static final long serialVersionUID = 1L;
     private final long id;
     private final String name;
     private final Coordinates coordinates;
