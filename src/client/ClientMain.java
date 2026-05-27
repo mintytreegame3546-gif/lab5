@@ -12,18 +12,12 @@ import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
 import java.time.Duration;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.Scanner;
-import java.util.Set;
 
 public class ClientMain {
     private static final int DEFAULT_PORT = 5555;
     private static final int RETRIES = 3;
     private static final Duration RESPONSE_TIMEOUT = Duration.ofSeconds(2);
-    private static final Set<String> ORGANIZATION_COMMANDS = new HashSet<>(Arrays.asList(
-            "add", "add_if_min", "remove_lower"
-    ));
-
     public static void main(String[] args) throws Exception {
         String host = args.length > 0 ? args[0] : "localhost";
         int port = args.length > 1 ? Integer.parseInt(args[1]) : DEFAULT_PORT;
@@ -82,13 +76,20 @@ public class ClientMain {
             return;
         }
 
-        Organization organization = ORGANIZATION_COMMANDS.contains(name) ? inputManager.readOrganization(0) : null;
+        Organization organization = requiresOrganization(name) ? inputManager.readOrganization(0) : null;
         CommandResponse response = sendRequest(channel, server, new CommandRequest(name, args, organization));
         if (response == null) {
             System.out.println("Server is temporarily unavailable. Please try again later.");
             return;
         }
         System.out.println(response.getMessage());
+    }
+
+
+    private static boolean requiresOrganization(String commandName) {
+        return "add".equals(commandName)
+                || "add_if_min".equals(commandName)
+                || "remove_lower".equals(commandName);
     }
 
     private static CommandResponse sendRequest(DatagramChannel channel, InetSocketAddress server, CommandRequest request) throws Exception {
