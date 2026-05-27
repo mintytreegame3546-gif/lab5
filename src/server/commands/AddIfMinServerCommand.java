@@ -16,6 +16,8 @@ public class AddIfMinServerCommand implements ServerCommand {
     public String getDescription() { return "Add a new organization if its annual turnover is less than the minimum in collection"; }
 
     public CommandResponse execute(CommandRequest request) {
+        String validation = ServerCommandSupport.validateOrganization(request.getOrganization());
+        if (validation != null) return new CommandResponse(false, validation);
         Organization org = ServerCommandSupport.withServerFields(request.getOrganization(), collectionManager.generateId());
         boolean added = collectionManager.getCollection().stream().min(Organization::compareTo)
                 .map(min -> org.compareTo(min) < 0)

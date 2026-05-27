@@ -6,6 +6,7 @@ import network.CommandResponse;
 import server.commands.AddIfMinServerCommand;
 import server.commands.AddServerCommand;
 import server.commands.ClearServerCommand;
+import server.commands.ExecuteScriptServerCommand;
 import server.commands.FilterNameServerCommand;
 import server.commands.HelpServerCommand;
 import server.commands.InfoServerCommand;
@@ -37,6 +38,7 @@ public class ServerCommandProcessor {
         register(new SumTurnoverServerCommand(collectionManager));
         register(new FilterNameServerCommand(collectionManager));
         register(new PrintAddressAscServerCommand(collectionManager));
+        register(new ExecuteScriptServerCommand(commands));
         register(new HelpServerCommand(commands));
     }
 
