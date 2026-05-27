@@ -5,7 +5,6 @@ import data.Organization;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.LinkedList;
-import java.util.stream.Collectors;
 
 public class CollectionManager {
     private final LinkedList<Organization> collection = new LinkedList<>();

@@ -11,12 +11,20 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.SocketTimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.logging.LogRecord;
+import java.util.logging.SimpleFormatter;
+import java.util.logging.StreamHandler;
 
 public class ServerMain {
     private static final Logger logger = Logger.getLogger(ServerMain.class.getName());
     private static final int DEFAULT_PORT = 5555;
+
+    static {
+        configureLoggerToStdout();
+    }
 
     public static void main(String[] args) throws Exception {
         String file = args.length > 0 ? args[0] : "data.csv";
@@ -74,5 +82,20 @@ public class ServerMain {
             logger.log(Level.WARNING, "Failed to process request", e);
             return new CommandResponse(false, "Error: failed to read request: " + e.getMessage());
         }
+    }
+
+    private static void configureLoggerToStdout() {
+        logger.setUseParentHandlers(false);
+        for (Handler handler : logger.getHandlers()) logger.removeHandler(handler);
+        StreamHandler stdoutHandler = new StreamHandler(System.out, new SimpleFormatter()) {
+            @Override
+            public synchronized void publish(LogRecord record) {
+                super.publish(record);
+                flush();
+            }
+        };
+        stdoutHandler.setLevel(Level.ALL);
+        logger.addHandler(stdoutHandler);
+        logger.setLevel(Level.INFO);
     }
 }
