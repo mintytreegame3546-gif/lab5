@@ -37,6 +37,7 @@ public class ExecuteScriptServerCommand implements ServerCommand {
         }
         if (active.contains(fileName)) {
             output.append("Recursion detected for script '").append(fileName).append("'.\n");
+            return;
         }
         List<String> lines = scripts.get(fileName);
         if (lines == null) {
