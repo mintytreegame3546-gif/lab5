@@ -30,21 +30,22 @@ public class ExecuteScriptServerCommand implements ServerCommand {
         return new CommandResponse(true, output.toString().trim().isEmpty() ? "Script executed" : output.toString().trim());
     }
 
-    private void executeScript(String fileName, Map<String, List<String>> scripts, int depth, Set<String> active, StringBuilder output) {
+    private boolean executeScript(String fileName, Map<String, List<String>> scripts, int depth, Set<String> active, StringBuilder output) {
         if (depth > MAX_RECURSION) {
             output.append("Recursion limit exceeded (max 5). Execution stopped.\n");
-            return;
+            return true;
         }
         if (active.contains(fileName)) {
             output.append("Recursion detected for script '").append(fileName).append("'.\n");
-            return;
+            return false;
         }
         List<String> lines = scripts.get(fileName);
         if (lines == null) {
             output.append("Error: script content for '").append(fileName).append("' was not provided\n");
-            return;
+            return false;
         }
         active.add(fileName);
+        boolean shouldStop = false;
         for (String raw : lines) {
             String line = raw.trim();
             if (line.isEmpty()) continue;
@@ -56,18 +57,26 @@ public class ExecuteScriptServerCommand implements ServerCommand {
                     output.append("Error: file_name is required\n");
                     continue;
                 }
-                executeScript(commandArgs[0], scripts, depth + 1, active, output);
-                if (output.indexOf("Recursion limit exceeded") >= 0) break;
+                shouldStop = executeScript(commandArgs[0], scripts, depth + 1, active, output);
+                if (shouldStop) break;
                 continue;
             }
-            ServerCommand nested = commands.get(commandName);
-            if (nested == null) {
-                output.append("Error: Unknown command '").append(commandName).append("'\n");
-                continue;
-            }
-            CommandResponse response = nested.execute(new CommandRequest(commandName, commandArgs, null, scripts));
+            CommandResponse response = executeNestedCommand(commandName, commandArgs, scripts);
             output.append(response.getMessage()).append("\n");
         }
         active.remove(fileName);
+        return shouldStop;
+    }
+
+    private CommandResponse executeNestedCommand(String commandName, String[] args, Map<String, List<String>> scripts) {
+        ServerCommand nested = commands.get(commandName);
+        if (nested == null) return new CommandResponse(false, "Error: Unknown command '" + commandName + "'");
+        try {
+            return nested.execute(new CommandRequest(commandName, args, null, scripts));
+        } catch (NumberFormatException e) {
+            return new CommandResponse(false, "Error: Please enter a valid number");
+        } catch (Exception e) {
+            return new CommandResponse(false, "Error executing command: " + e.getMessage());
+        }
     }
 }
