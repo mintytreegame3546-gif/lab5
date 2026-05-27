@@ -12,18 +12,12 @@ import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
 import java.time.Duration;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.Scanner;
-import java.util.Set;
 
 public class ClientMain {
     private static final int DEFAULT_PORT = 5555;
     private static final int RETRIES = 3;
     private static final Duration RESPONSE_TIMEOUT = Duration.ofSeconds(2);
-    private static final Set<String> ORGANIZATION_COMMANDS = new HashSet<>(Arrays.asList(
-            "add", "add_if_min", "remove_lower", "update"
-    ));
-
     public static void main(String[] args) throws Exception {
         String host = args.length > 0 ? args[0] : "localhost";
         int port = args.length > 1 ? Integer.parseInt(args[1]) : DEFAULT_PORT;
@@ -58,11 +52,31 @@ public class ClientMain {
         String[] args = Arrays.copyOfRange(tokens, 1, tokens.length);
         if ("update".equals(name)) {
             String id = args.length > 0 ? args[0] : "";
-            sendUpdateWithRetry(channel, server, inputManager, scanner, id);
+            while (true) {
+                String[] requestArgs = id.isEmpty() ? new String[0] : new String[]{id};
+                CommandResponse validation = sendRequest(channel, server, new CommandRequest("update", requestArgs, null));
+                if (validation == null) {
+                    System.out.println("Server is temporarily unavailable. Please try again later.");
+                    return;
+                }
+                if ("ID is valid".equals(validation.getMessage())) break;
+                System.out.println(validation.getMessage());
+                System.out.print("Enter a valid existing ID for update (or empty to cancel): ");
+                String input = scanner.nextLine().trim();
+                if (input.isEmpty()) return;
+                id = input;
+            }
+            Organization organization = inputManager.readOrganization(0);
+            CommandResponse updateResponse = sendRequest(channel, server, new CommandRequest("update", new String[]{id}, organization));
+            if (updateResponse == null) {
+                System.out.println("Server is temporarily unavailable. Please try again later.");
+                return;
+            }
+            System.out.println(updateResponse.getMessage());
             return;
         }
 
-        Organization organization = ORGANIZATION_COMMANDS.contains(name) ? inputManager.readOrganization(0) : null;
+        Organization organization = requiresOrganization(name) ? inputManager.readOrganization(0) : null;
         CommandResponse response = sendRequest(channel, server, new CommandRequest(name, args, organization));
         if (response == null) {
             System.out.println("Server is temporarily unavailable. Please try again later.");
@@ -71,30 +85,11 @@ public class ClientMain {
         System.out.println(response.getMessage());
     }
 
-    private static void sendUpdateWithRetry(DatagramChannel channel, InetSocketAddress server, InputManager inputManager, Scanner scanner, String id) throws Exception {
-        while (true) {
-            String[] requestArgs = id.isEmpty() ? new String[0] : new String[]{id};
-            CommandResponse validation = sendRequest(channel, server, new CommandRequest("update", requestArgs, null));
-            if (validation == null) {
-                System.out.println("Server is temporarily unavailable. Please try again later.");
-                return;
-            }
-            if ("ID is valid".equals(validation.getMessage())) {
-                Organization organization = inputManager.readOrganization(0);
-                CommandResponse updateResponse = sendRequest(channel, server, new CommandRequest("update", new String[]{id}, organization));
-                if (updateResponse == null) {
-                    System.out.println("Server is temporarily unavailable. Please try again later.");
-                    return;
-                }
-                System.out.println(updateResponse.getMessage());
-                return;
-            }
-            System.out.println(validation.getMessage());
-            System.out.print("Enter a valid existing ID for update (or empty to cancel): ");
-            String input = scanner.nextLine().trim();
-            if (input.isEmpty()) return;
-            id = input;
-        }
+
+    private static boolean requiresOrganization(String commandName) {
+        return "add".equals(commandName)
+                || "add_if_min".equals(commandName)
+                || "remove_lower".equals(commandName);
     }
 
     private static CommandResponse sendRequest(DatagramChannel channel, InetSocketAddress server, CommandRequest request) throws Exception {
