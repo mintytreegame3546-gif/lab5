@@ -32,64 +32,34 @@ public class ClientMain {
                 if (!scanner.hasNextLine()) break;
                 String line = scanner.nextLine().trim();
                 if (line.isEmpty()) continue;
-                if ("exit".equals(line)) {
+                String[] tokens = line.split("\\s+");
+                String commandName = tokens[0];
+                if ("exit".equals(commandName)) {
                     System.out.println("Goodbye");
                     break;
                 }
-                String commandName = line.split("\\s+", 2)[0];
                 if ("save".equals(commandName)) {
                     System.out.println("Error: save is a server-only command");
                     continue;
                 }
-                sendLine(channel, server, inputManager, scanner, line);
+                sendCommand(channel, server, inputManager, tokens);
             }
         }
     }
 
-    private static void sendLine(DatagramChannel channel, InetSocketAddress server, InputManager inputManager, Scanner scanner, String line) throws Exception {
-        String[] tokens = line.split("\\s+");
+    private static void sendCommand(DatagramChannel channel, InetSocketAddress server, InputManager inputManager, String[] tokens) throws Exception {
         String name = tokens[0];
         String[] args = Arrays.copyOfRange(tokens, 1, tokens.length);
-        if ("update".equals(name)) {
-            String id = args.length > 0 ? args[0] : "";
-            while (true) {
-                String[] requestArgs = id.isEmpty() ? new String[0] : new String[]{id};
-                CommandResponse validation = sendRequest(channel, server, new CommandRequest("update", requestArgs, null));
-                if (validation == null) {
-                    System.out.println("Server is temporarily unavailable. Please try again later.");
-                    return;
-                }
-                if (validation.isSuccess()) break;
-                System.out.println(validation.getMessage());
-                System.out.print("Enter a valid existing ID for update (or empty to cancel): ");
-                String input = scanner.nextLine().trim();
-                if (input.isEmpty()) return;
-                id = input;
-            }
+        CommandResponse response = sendRequest(channel, server, new CommandRequest(name, args, null));
+        if (response == null) return;
+
+        if (!response.isSuccess() && "Error: organization payload is required".equals(response.getMessage())) {
             Organization organization = inputManager.readOrganization(0);
-            CommandResponse updateResponse = sendRequest(channel, server, new CommandRequest("update", new String[]{id}, organization));
-            if (updateResponse == null) {
-                System.out.println("Server is temporarily unavailable. Please try again later.");
-                return;
-            }
-            System.out.println(updateResponse.getMessage());
-            return;
+            response = sendRequest(channel, server, new CommandRequest(name, args, organization));
+            if (response == null) return;
         }
 
-        Organization organization = requiresOrganization(name) ? inputManager.readOrganization(0) : null;
-        CommandResponse response = sendRequest(channel, server, new CommandRequest(name, args, organization));
-        if (response == null) {
-            System.out.println("Server is temporarily unavailable. Please try again later.");
-            return;
-        }
         System.out.println(response.getMessage());
-    }
-
-
-    private static boolean requiresOrganization(String commandName) {
-        return "add".equals(commandName)
-                || "add_if_min".equals(commandName)
-                || "remove_lower".equals(commandName);
     }
 
     private static CommandResponse sendRequest(DatagramChannel channel, InetSocketAddress server, CommandRequest request) throws Exception {
@@ -114,6 +84,7 @@ public class ClientMain {
             }
             System.out.println("No response from server, retry " + (attempt + 1) + " of " + RETRIES + "...");
         }
+        System.out.println("Server is temporarily unavailable. Please try again later.");
         return null;
     }
 }
