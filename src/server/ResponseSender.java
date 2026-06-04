@@ -11,6 +11,8 @@ public class ResponseSender {
         byte[] responseBytes = SerializationUtils.serialize(response);
         DatagramPacket responsePacket = new DatagramPacket(responseBytes, responseBytes.length,
                 requestPacket.getAddress(), requestPacket.getPort());
-        socket.send(responsePacket);
+        synchronized (socket) {
+            socket.send(responsePacket);
+        }
     }
 }

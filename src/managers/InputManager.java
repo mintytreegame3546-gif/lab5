@@ -9,43 +9,53 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Scanner;
 
+/**
+ * Reads organization payloads from interactive client console input.
+ */
 public class InputManager {
     private final Scanner scanner;
-    public InputManager(Scanner s) { this.scanner = s; }
 
+    /**
+     * Creates an input manager backed by a scanner.
+     *
+     * @param scanner console scanner
+     */
+    public InputManager(Scanner scanner) {
+        this.scanner = scanner;
+    }
+
+    /**
+     * Reads one organization from console prompts.
+     *
+     * @param id temporary client-side id; the server replaces it for persisted objects
+     * @return organization payload
+     */
     public Organization readOrganization(long id) {
-        String name;
-        while (true) {
-            System.out.print("Enter organization name: ");
-            name = scanner.nextLine().trim();
-            if (!name.isEmpty()) break;
-            System.out.println("Error: Organization name cannot be empty");
-        }
-
+        String name = readName();
         Long x = readLong();
         Double y = readDouble();
         Float turnover = readFloat();
-
         OrganizationType type = readType();
+        Address address = readAddress();
+        return new Organization(id, name, new Coordinates(x, y), LocalDateTime.now(), turnover, type, address);
+    }
 
-        System.out.print("Enter street name: ");
-        String street = scanner.nextLine().trim();
-        if (street.isEmpty()) street = null;
-
-        System.out.print("Enter ZipCode: ");
-        String zip = scanner.nextLine().trim();
-        if (zip.isEmpty()) zip = null;
-
-        return new Organization(id, name, new Coordinates(x, y), LocalDateTime.now(), turnover, type, new Address(street, zip));
+    private String readName() {
+        while (true) {
+            System.out.print("Enter organization name: ");
+            String name = scanner.nextLine().trim();
+            if (!name.isEmpty()) return name;
+            System.out.println("Error: Organization name cannot be empty");
+        }
     }
 
     private Long readLong() {
         while (true) {
             try {
                 System.out.print("Coordinate X (<=90): ");
-                long val = Long.parseLong(scanner.nextLine().trim());
-                if (val <= 90L) return val;
-                System.out.println("Error: Value must be >= " + 90L);
+                long value = Long.parseLong(scanner.nextLine().trim());
+                if (value <= 90L) return value;
+                System.out.println("Error: Value must be <= " + 90L);
             } catch (NumberFormatException e) {
                 System.out.println("Error: Please enter a valid number");
             }
@@ -56,9 +66,9 @@ public class InputManager {
         while (true) {
             try {
                 System.out.print("Coordinate Y (<=117): ");
-                double val = Double.parseDouble(scanner.nextLine().trim());
-                if (val <= 117.0) return val;
-                System.out.println("Error: value must be >= " + 117.0);
+                double value = Double.parseDouble(scanner.nextLine().trim());
+                if (value <= 117.0) return value;
+                System.out.println("Error: value must be <= " + 117.0);
             } catch (NumberFormatException e) {
                 System.out.println("Error: Please enter a valid number");
             }
@@ -69,9 +79,9 @@ public class InputManager {
         while (true) {
             try {
                 System.out.print("Annual turnover (>0): ");
-                float val = Float.parseFloat(scanner.nextLine().trim());
-                if (val > (float) 0.0) return val;
-                System.out.println("Error: value must be >= " + (float) 0.0);
+                float value = Float.parseFloat(scanner.nextLine().trim());
+                if (value > 0.0f) return value;
+                System.out.println("Error: value must be > " + 0.0f);
             } catch (NumberFormatException e) {
                 System.out.println("Error: Please enter a valid number");
             }
@@ -90,5 +100,13 @@ public class InputManager {
                 System.out.println("Error: Organization type unknown");
             }
         }
+    }
+
+    private Address readAddress() {
+        System.out.print("Enter street name: ");
+        String street = scanner.nextLine().trim();
+        System.out.print("Enter ZipCode: ");
+        String zipCode = scanner.nextLine().trim();
+        return new Address(street.isEmpty() ? null : street, zipCode.isEmpty() ? null : zipCode);
     }
 }
