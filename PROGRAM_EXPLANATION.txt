@@ -1,0 +1,361 @@
+JAVA TOPICS EXPLANATION WITH EXAMPLES FROM THIS CODEBASE
+
+Project context
+- This repository implements a client-server command application in Java.
+- The transport used by the current implementation is UDP (DatagramSocket/DatagramChannel + datagram packets).
+- Request and response data are transferred as serialized Java objects.
+
+=================================================================
+1) Network communication: client-server architecture, main protocols,
+   similarities and differences
+=================================================================
+
+Client-server architecture
+- Client: initiates communication, sends requests, and consumes server responses.
+- Server: listens on a network port, accepts/receives requests, executes business logic, and returns responses.
+
+How it appears in this project
+- Client entrypoint: src/client/ClientMain.java
+  - Reads user commands.
+  - Sends CommandRequest to server.
+  - Prints CommandResponse.
+- Server entrypoint: src/server/ServerMain.java
+  - Listens on UDP port.
+  - Reads incoming requests.
+  - Delegates command execution to ServerCommandProcessor.
+  - Sends response back.
+
+Main transport protocols used in Java network programming
+- TCP (Transmission Control Protocol)
+- UDP (User Datagram Protocol)
+
+Protocol similarities
+- Both operate on top of IP.
+- Both use port numbers to identify application endpoints.
+- Both are supported by Java networking APIs.
+- Both can carry application-layer protocols you define (like your serialized CommandRequest/CommandResponse format).
+
+Protocol differences (high-impact)
+- Connection model:
+  - TCP: connection-oriented (explicit session establishment).
+  - UDP: connectionless (send datagrams without session establishment).
+- Delivery guarantees:
+  - TCP: reliable, ordered, duplicate-free byte stream.
+  - UDP: best-effort, no guarantee of delivery/order/no-duplication.
+- Message boundaries:
+  - TCP: stream-oriented (you must define framing yourself).
+  - UDP: packet-oriented (message boundaries preserved per datagram).
+- Overhead/latency:
+  - TCP: higher overhead due to reliability and flow/congestion control.
+  - UDP: lower overhead, often lower latency in ideal conditions.
+- Typical use:
+  - TCP: web APIs, databases, most transactional systems.
+  - UDP: DNS, VoIP, telemetry, real-time scenarios.
+
+In this project
+- UDP was selected and compensated with retry/timeout logic in client sendRequest.
+- Tradeoff: simpler request-per-datagram behavior, but no absolute delivery guarantee.
+
+=============================================
+2) TCP protocol. Socket and ServerSocket classes
+=============================================
+
+TCP basics
+- Reliable, ordered byte-stream protocol.
+- Connection handshake before data transfer.
+- Continuous stream; application must define where messages start/end.
+
+Core classes
+- java.net.ServerSocket
+  - Server-side listening socket.
+  - Binds to a port and accepts incoming TCP connections.
+- java.net.Socket
+  - Endpoint for a single TCP connection.
+  - Provides InputStream and OutputStream for bidirectional communication.
+
+Typical TCP flow
+1. Server creates ServerSocket(port).
+2. Server calls accept() and blocks until client connects.
+3. Client creates Socket(host, port).
+4. Both sides exchange bytes via streams.
+5. Close socket(s).
+
+Minimal TCP example (not used in current codebase)
+- Server side idea:
+  - ServerSocket ss = new ServerSocket(5555);
+  - Socket client = ss.accept();
+  - read/write via client.getInputStream()/getOutputStream().
+- Client side idea:
+  - Socket s = new Socket("localhost", 5555);
+  - read/write via streams.
+
+Why no direct example in this repo
+- Current implementation is UDP-based; there is no Socket/ServerSocket usage in source.
+
+===============================================
+3) UDP protocol. DatagramSocket and DatagramPacket
+===============================================
+
+UDP basics
+- Connectionless datagram protocol.
+- Each message is an independent packet.
+- No built-in reliability/order guarantee.
+
+Core classes
+- java.net.DatagramSocket
+  - Sends/receives DatagramPacket on a bound port.
+  - Typically used for blocking receive loops.
+- java.net.DatagramPacket
+  - Byte array + length + destination/source address metadata.
+  - Represents a single UDP message.
+
+Example in this project
+- ServerMain creates a DatagramSocket bound to server port.
+- Server uses receive(...) to get packets, then sends response packets.
+- RequestReader/ResponseSender handle packet decoding/encoding and response transport.
+
+Client-side in this project
+- Uses DatagramChannel (NIO API) instead of DatagramSocket directly.
+- Still UDP underneath; each send corresponds to datagram transmission.
+
+============================================================
+4) Blocking vs non-blocking I/O, pros/cons, network channels
+============================================================
+
+Blocking I/O
+- Operation waits until it can progress.
+- Example: blocking receive() waits for a packet.
+
+Pros
+- Simple control flow.
+- Easy to reason about sequentially.
+
+Cons
+- Thread can sit idle waiting.
+- Scaling many connections may require many threads.
+
+Non-blocking I/O
+- Operation returns immediately if no data available.
+- Usually combined with polling/selectors/event loops.
+
+Pros
+- Better scalability for many endpoints.
+- One thread can manage multiple channels.
+
+Cons
+- More complex logic/state management.
+- Requires careful timeout/retry behavior.
+
+In this project
+- Client uses non-blocking DatagramChannel and polls for response with timeout/retry loop.
+- Server uses DatagramSocket with timeout (setSoTimeout), which is a practical hybrid:
+  - Mostly blocking receive.
+  - Periodic wake-up to process server console commands (save/exit).
+
+========================================
+5) SocketChannel and DatagramChannel classes
+========================================
+
+SocketChannel (TCP, NIO)
+- Non-blocking/blocking TCP channel alternative to Socket.
+- Works with ByteBuffer.
+- Can be multiplexed with Selector.
+
+DatagramChannel (UDP, NIO)
+- Non-blocking/blocking UDP channel alternative to DatagramSocket.
+- Send/receive datagrams using ByteBuffer.
+
+In this project
+- ClientMain uses DatagramChannel for UDP request transmission and response reception.
+- This allows non-blocking behavior with explicit retry windows.
+
+No SocketChannel example in this repo
+- TCP is not implemented, so SocketChannel is not present.
+
+===================================================
+6) Network data transmission. Object serialization
+===================================================
+
+Why serialization is needed
+- Java objects in memory cannot be sent directly over network.
+- They must be converted into a byte representation (serialization) and reconstructed on receiver.
+
+In this project
+- Protocol objects:
+  - src/network/CommandRequest.java
+  - src/network/CommandResponse.java
+- Serialization utility:
+  - src/network/SerializationUtils.java
+- Flow:
+  - Client serializes CommandRequest -> bytes -> UDP packet.
+  - Server deserializes bytes -> CommandRequest object.
+  - Server serializes CommandResponse -> bytes -> UDP packet.
+  - Client deserializes response object.
+
+Operational concerns
+- Serialized payload size must fit UDP datagram limit.
+- Version compatibility matters when class shape changes (serialVersionUID, fields).
+
+===================================================================
+7) Serializable interface. Object graph, field/method serialization rules
+===================================================================
+
+Serializable interface
+- Marker interface: java.io.Serializable.
+- No methods; it signals that object can be serialized by Java ObjectOutputStream.
+
+Object graph concept
+- Serializing one object may recursively serialize referenced objects (its graph).
+- All reachable objects that must be persisted/transmitted also need to be serializable (or transient).
+
+Field serialization rules (default Java behavior)
+- Instance fields are serialized by default.
+- static fields are NOT serialized (belong to class, not object state).
+- transient fields are NOT serialized.
+- Methods are never serialized.
+
+Deserialization
+- Reconstructs object state from bytes.
+- Constructors are not called in the same way as normal instantiation for serializable classes.
+
+In this project
+- CommandRequest and CommandResponse are serialized transport DTOs.
+- Nested referenced objects (like Organization payload) are part of the serialized graph and must be serializable-compatible.
+
+===========================================================
+8) Java Stream API. Pipelines, intermediate and terminal operations
+===========================================================
+
+Stream API overview
+- Declarative data processing style over collections/arrays/etc.
+- Build a pipeline:
+  - source -> intermediate operations -> terminal operation.
+
+Intermediate operations (lazy)
+- map, filter, sorted, distinct, peek, limit, skip.
+- Return a new Stream.
+
+Terminal operations (eager, trigger execution)
+- collect, forEach, reduce, count, anyMatch, allMatch, findFirst.
+
+Pipeline example shape
+- list.stream()
+      .filter(x -> condition)
+      .map(x -> transform)
+      .collect(Collectors.toList());
+
+In this project
+- Current code primarily uses imperative loops for clarity and direct control in command execution and I/O flow.
+- If stream usage appears in specific files/branches, it follows same source->intermediate->terminal model above.
+
+=====================================================================
+9) Design patterns: Decorator, Iterator, Factory Method, Command,
+   Flyweight, Interpreter, Singleton, Strategy, Adapter, Facade, Proxy
+=====================================================================
+
+A) Command pattern
+- Intent: encapsulate a request as an object.
+- Benefits: decouple invoker from receiver, easy extension, uniform execution.
+
+In this project (strong direct example)
+- Interface: src/server/commands/ServerCommand.java
+- Concrete commands: AddServerCommand, UpdateServerCommand, ExecuteScriptServerCommand, etc.
+- Invoker/dispatcher: src/server/ServerCommandProcessor.java maps command name -> command object and executes.
+
+B) Iterator pattern
+- Intent: sequential access to elements without exposing internal structure.
+- Java built-in example: Iterator from collections, enhanced for-loop abstraction.
+
+In this project
+- Traversals over collection/script lines are iterator-like operations via loops over List/LinkedList.
+
+C) Strategy pattern
+- Intent: define interchangeable algorithms behind a common interface.
+
+Possible interpretation in this project
+- Different ServerCommand implementations represent interchangeable execution strategies selected by command name.
+- While architecturally closest to Command, it also exhibits strategy-like substitution behavior.
+
+D) Facade pattern
+- Intent: provide simplified API over complex subsystem.
+
+In this project
+- ServerCommandProcessor acts as a facade over command lookup + execution + common error mapping.
+- ClientMain sendCommand/sendRequest provide simplified flow over lower-level channel and serialization details.
+
+E) Adapter pattern
+- Intent: convert one interface into another expected by clients.
+
+In this project (conceptual)
+- SerializationUtils adapts domain/network objects into byte arrays and back for transport APIs.
+
+F) Decorator pattern
+- Intent: add behavior dynamically by wrapping objects.
+- Example in Java core: BufferedInputStream wraps InputStream.
+
+In this project
+- No explicit custom decorator implementation found.
+
+G) Factory Method pattern
+- Intent: defer object creation to subclasses/factory method.
+
+In this project
+- No explicit formal factory method class hierarchy found; object creation is mostly direct via constructors.
+
+H) Flyweight pattern
+- Intent: share intrinsic state to reduce memory footprint for many similar objects.
+
+In this project
+- No explicit flyweight pool implementation found.
+
+I) Interpreter pattern
+- Intent: represent and evaluate grammar/sentences.
+
+In this project (lightweight form)
+- Command parsing (line -> commandName + args) is a minimal interpreter-like behavior.
+- execute_script processes script statements in same command language.
+
+J) Singleton pattern
+- Intent: ensure one instance with global access.
+
+In this project
+- No strict singleton class detected; lifecycle is controlled in main methods with composed instances.
+
+K) Proxy pattern
+- Intent: stand-in object controlling access to real subject.
+
+In this project
+- No explicit proxy class found.
+
+Practical summary for this codebase
+- Clearly present: Command (primary), interpreter-like command parsing.
+- Partially/conceptually present: Strategy/Facade/Adapter aspects.
+- Not explicitly implemented as dedicated classes: Decorator, Factory Method, Flyweight, Singleton, Proxy.
+
+=================================================
+10) Mapping requested topics to repository examples
+=================================================
+
+Direct code examples available
+- Client-server architecture:
+  - src/client/ClientMain.java
+  - src/server/ServerMain.java
+- UDP transport:
+  - src/server/ServerMain.java (DatagramSocket receive/send loop)
+  - src/client/ClientMain.java (DatagramChannel send/receive)
+- Serialization:
+  - src/network/SerializationUtils.java
+  - src/network/CommandRequest.java
+  - src/network/CommandResponse.java
+- Command pattern:
+  - src/server/commands/ServerCommand.java
+  - src/server/ServerCommandProcessor.java
+  - src/server/commands/*ServerCommand.java
+- Script command interpretation:
+  - src/server/commands/ExecuteScriptServerCommand.java
+
+Requested topics with no direct implementation in current code
+- TCP-specific classes: Socket, ServerSocket, SocketChannel.
+- Dedicated implementations of Decorator, Factory Method, Flyweight, Singleton, Proxy.
+
+This does not mean these concepts are unimportant; it means the current project scope is UDP command execution and server-side command processing.

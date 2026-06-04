@@ -26,11 +26,11 @@ public class ExecuteScriptServerCommand implements ServerCommand {
         Map<String, List<String>> scripts = request.getScripts();
         if (!scripts.containsKey(root)) return new CommandResponse(false, "Error: script content for '" + root + "' was not provided");
         StringBuilder output = new StringBuilder();
-        executeScript(root, scripts, 1, new HashSet<>(), output);
+        executeScript(root, scripts, 1, new HashSet<>(), output, request);
         return new CommandResponse(true, output.toString().trim().isEmpty() ? "Script executed" : output.toString().trim());
     }
 
-    private boolean executeScript(String fileName, Map<String, List<String>> scripts, int depth, Set<String> active, StringBuilder output) {
+    private boolean executeScript(String fileName, Map<String, List<String>> scripts, int depth, Set<String> active, StringBuilder output, CommandRequest request) {
         if (depth > MAX_RECURSION) {
             output.append("Recursion limit exceeded (max 5). Execution stopped.\n");
             return true;
@@ -57,22 +57,22 @@ public class ExecuteScriptServerCommand implements ServerCommand {
                     output.append("Error: file_name is required\n");
                     continue;
                 }
-                shouldStop = executeScript(commandArgs[0], scripts, depth + 1, active, output);
+                shouldStop = executeScript(commandArgs[0], scripts, depth + 1, active, output, request);
                 if (shouldStop) break;
                 continue;
             }
-            CommandResponse response = executeNestedCommand(commandName, commandArgs, scripts);
+            CommandResponse response = executeNestedCommand(commandName, commandArgs, scripts, request);
             output.append(response.getMessage()).append("\n");
         }
         active.remove(fileName);
         return shouldStop;
     }
 
-    private CommandResponse executeNestedCommand(String commandName, String[] args, Map<String, List<String>> scripts) {
+    private CommandResponse executeNestedCommand(String commandName, String[] args, Map<String, List<String>> scripts, CommandRequest request) {
         ServerCommand nested = commands.get(commandName);
         if (nested == null) return new CommandResponse(false, "Error: Unknown command '" + commandName + "'");
         try {
-            return nested.execute(new CommandRequest(commandName, args, null, scripts));
+            return nested.execute(new CommandRequest(commandName, args, null, scripts, request.getUsername(), request.getPassword()));
         } catch (NumberFormatException e) {
             return new CommandResponse(false, "Error: Please enter a valid number");
         } catch (Exception e) {

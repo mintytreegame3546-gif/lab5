@@ -6,5 +6,5 @@ import network.CommandResponse;
 public interface ServerCommand {
     String getName();
     String getDescription();
-    CommandResponse execute(CommandRequest request);
+    CommandResponse execute(CommandRequest request) throws Exception;
 }

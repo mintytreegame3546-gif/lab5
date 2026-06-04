@@ -31,7 +31,8 @@ public class ClientMain {
         try (DatagramChannel channel = DatagramChannel.open(); Scanner scanner = new Scanner(System.in)) {
             channel.configureBlocking(false);
             InputManager inputManager = new InputManager(scanner);
-            System.out.println("Client started. Enter 'help' for commands or 'exit' to quit.");
+            String[] credentials = new String[2];
+            System.out.println("Client started. Use 'register username password' or 'login username password'. Enter 'help' for commands or 'exit' to quit.");
             while (true) {
                 System.out.print("> ");
                 if (!scanner.hasNextLine()) break;
@@ -47,25 +48,35 @@ public class ClientMain {
                     System.out.println("Error: save is a server-only command");
                     continue;
                 }
-                sendCommand(channel, server, inputManager, tokens);
+                sendCommand(channel, server, inputManager, tokens, credentials);
             }
         }
     }
 
-    private static void sendCommand(DatagramChannel channel, InetSocketAddress server, InputManager inputManager, String[] tokens) throws Exception {
+    private static void sendCommand(DatagramChannel channel, InetSocketAddress server, InputManager inputManager, String[] tokens, String[] credentials) throws Exception {
         String name = tokens[0];
         String[] args = Arrays.copyOfRange(tokens, 1, tokens.length);
         Map<String, List<String>> scripts = "execute_script".equals(name) ? readScriptBundle(args) : Map.of();
         if (scripts == null) return;
-        CommandResponse response = sendRequest(channel, server, new CommandRequest(name, args, null, scripts));
+        String requestUsername = credentials[0];
+        String requestPassword = credentials[1];
+        if (("login".equals(name) || "register".equals(name)) && args.length >= 2) {
+            requestUsername = args[0];
+            requestPassword = args[1];
+        }
+        CommandResponse response = sendRequest(channel, server, new CommandRequest(name, args, null, scripts, requestUsername, requestPassword));
         if (response == null) return;
 
         if (!response.isSuccess() && "Error: organization payload is required".equals(response.getMessage())) {
             Organization organization = inputManager.readOrganization(0);
-            response = sendRequest(channel, server, new CommandRequest(name, args, organization, scripts));
+            response = sendRequest(channel, server, new CommandRequest(name, args, organization, scripts, requestUsername, requestPassword));
             if (response == null) return;
         }
 
+        if (response.isSuccess() && ("login".equals(name) || "register".equals(name)) && args.length >= 2) {
+            credentials[0] = args[0];
+            credentials[1] = args[1];
+        }
         System.out.println(response.getMessage());
     }
 
