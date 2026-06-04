@@ -1,8 +1,10 @@
 package data;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 
-public class Organization implements Comparable<Organization> {
+public class Organization implements Comparable<Organization>, Serializable {
+    private static final long serialVersionUID = 1L;
     private final long id;
     private final String name;
     private final Coordinates coordinates;
@@ -10,12 +12,18 @@ public class Organization implements Comparable<Organization> {
     private final float annualTurnover;
     private final OrganizationType type;
     private final Address officialAddress;
+    private final String owner;
 
     public Organization(long id, String name, Coordinates coordinates, LocalDateTime creationDate,
                         float annualTurnover, OrganizationType type, Address officialAddress) {
+        this(id, name, coordinates, creationDate, annualTurnover, type, officialAddress, null);
+    }
+
+    public Organization(long id, String name, Coordinates coordinates, LocalDateTime creationDate,
+                        float annualTurnover, OrganizationType type, Address officialAddress, String owner) {
         this.id = id; this.name = name; this.coordinates = coordinates;
         this.creationDate = creationDate; this.annualTurnover = annualTurnover;
-        this.type = type; this.officialAddress = officialAddress;
+        this.type = type; this.officialAddress = officialAddress; this.owner = owner;
     }
 
     public long getId() { return id; }
@@ -25,6 +33,7 @@ public class Organization implements Comparable<Organization> {
     public OrganizationType getType() { return type; }
     public Coordinates getCoordinates() { return coordinates; }
     public LocalDateTime getCreationDate() { return creationDate; }
+    public String getOwner() { return owner; }
 
     @Override
     public int compareTo(Organization o) {
@@ -33,8 +42,8 @@ public class Organization implements Comparable<Organization> {
 
     @Override
     public String toString() {
-        return String.format("ID: %d | Name: %s | Coordinates: (X:%d, Y:%.2f) | Turnover: %.2f | Type: %s | Address: [Street: %s, Zipcode: %s]",
-                id, name, coordinates.getX(), coordinates.getY(), annualTurnover,
+        return String.format("ID: %d | Name: %s | Owner: %s | Coordinates: (X:%d, Y:%.2f) | Turnover: %.2f | Type: %s | Address: [Street: %s, Zipcode: %s]",
+                id, name, owner == null ? "unknown" : owner, coordinates.getX(), coordinates.getY(), annualTurnover,
                 (type == null ? "null" : type),
                 (officialAddress.getStreet() == null ? "null" : officialAddress.getStreet()),
                 (officialAddress.getZipCode() == null ? "null" : officialAddress.getZipCode()));
