@@ -1,0 +1,4 @@
+db.host=pg
+db.name=studs
+db.user=sXXXXXX
+db.password=your_helios_password

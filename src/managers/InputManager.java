@@ -45,7 +45,7 @@ public class InputManager {
                 System.out.print("Coordinate X (<=90): ");
                 long val = Long.parseLong(scanner.nextLine().trim());
                 if (val <= 90L) return val;
-                System.out.println("Error: Value must be >= " + 90L);
+                System.out.println("Error: Value must be <= " + 90L);
             } catch (NumberFormatException e) {
                 System.out.println("Error: Please enter a valid number");
             }
@@ -58,7 +58,7 @@ public class InputManager {
                 System.out.print("Coordinate Y (<=117): ");
                 double val = Double.parseDouble(scanner.nextLine().trim());
                 if (val <= 117.0) return val;
-                System.out.println("Error: value must be >= " + 117.0);
+                System.out.println("Error: value must be <= " + 117.0);
             } catch (NumberFormatException e) {
                 System.out.println("Error: Please enter a valid number");
             }
@@ -71,7 +71,7 @@ public class InputManager {
                 System.out.print("Annual turnover (>0): ");
                 float val = Float.parseFloat(scanner.nextLine().trim());
                 if (val > (float) 0.0) return val;
-                System.out.println("Error: value must be >= " + (float) 0.0);
+                System.out.println("Error: value must be > " + (float) 0.0);
             } catch (NumberFormatException e) {
                 System.out.println("Error: Please enter a valid number");
             }
