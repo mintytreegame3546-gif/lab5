@@ -3,10 +3,6 @@ package data;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.Objects;
-
-/**
- * Immutable organization model stored in the collection and PostgreSQL.
- */
 public class Organization implements Comparable<Organization>, Serializable {
     private static final long serialVersionUID = 1L;
     private final long id;
@@ -17,35 +13,10 @@ public class Organization implements Comparable<Organization>, Serializable {
     private final OrganizationType type;
     private final Address officialAddress;
     private final String ownerUsername;
-
-    /**
-     * Creates an organization without ownership metadata.
-     *
-     * @param id organization id
-     * @param name organization name
-     * @param coordinates organization coordinates
-     * @param creationDate creation timestamp
-     * @param annualTurnover annual turnover
-     * @param type organization type
-     * @param officialAddress official address
-     */
     public Organization(long id, String name, Coordinates coordinates, LocalDateTime creationDate,
                         float annualTurnover, OrganizationType type, Address officialAddress) {
         this(id, name, coordinates, creationDate, annualTurnover, type, officialAddress, null);
     }
-
-    /**
-     * Creates an organization with ownership metadata.
-     *
-     * @param id organization id
-     * @param name organization name
-     * @param coordinates organization coordinates
-     * @param creationDate creation timestamp
-     * @param annualTurnover annual turnover
-     * @param type organization type
-     * @param officialAddress official address
-     * @param ownerUsername username of the creator/owner
-     */
     public Organization(long id, String name, Coordinates coordinates, LocalDateTime creationDate,
                         float annualTurnover, OrganizationType type, Address officialAddress, String ownerUsername) {
         this.id = id;
@@ -58,44 +29,13 @@ public class Organization implements Comparable<Organization>, Serializable {
         this.ownerUsername = ownerUsername;
     }
 
-    /**
-     * @return organization id
-     */
     public long getId() { return id; }
-
-    /**
-     * @return organization name
-     */
     public String getName() { return name; }
-
-    /**
-     * @return annual turnover
-     */
     public float getAnnualTurnover() { return annualTurnover; }
-
-    /**
-     * @return official address
-     */
     public Address getOfficialAddress() { return officialAddress; }
-
-    /**
-     * @return organization type
-     */
     public OrganizationType getType() { return type; }
-
-    /**
-     * @return coordinates
-     */
     public Coordinates getCoordinates() { return coordinates; }
-
-    /**
-     * @return creation timestamp
-     */
     public LocalDateTime getCreationDate() { return creationDate; }
-
-    /**
-     * @return username of the owner
-     */
     public String getOwnerUsername() { return ownerUsername; }
 
     @Override

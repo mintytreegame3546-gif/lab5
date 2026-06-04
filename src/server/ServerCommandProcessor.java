@@ -28,22 +28,12 @@ import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-/**
- * Validates user authorization and dispatches incoming requests to registered server commands.
- */
 public final class ServerCommandProcessor {
     private static final Logger LOGGER = Logger.getLogger(ServerCommandProcessor.class.getName());
 
     private final Map<String, ServerCommand> commands = new LinkedHashMap<>();
     private final DatabaseManager databaseManager;
     private final PasswordHasher passwordHasher = new PasswordHasher();
-
-    /**
-     * Creates the command registry used by the server.
-     *
-     * @param collectionManager in-memory collection manager
-     * @param databaseManager database gateway for authentication and mutations
-     */
     public ServerCommandProcessor(CollectionManager collectionManager, DatabaseManager databaseManager) {
         this.databaseManager = databaseManager;
         register(new InfoServerCommand(collectionManager));
@@ -62,12 +52,6 @@ public final class ServerCommandProcessor {
         register(new HelpServerCommand(commands));
     }
 
-    /**
-     * Processes one request and converts command exceptions into user-facing responses.
-     *
-     * @param request command request
-     * @return command response
-     */
     public CommandResponse process(CommandRequest request) {
         try {
             if ("register".equals(request.getCommandName())) return registerUser(request);
@@ -126,5 +110,15 @@ public final class ServerCommandProcessor {
 
     private void register(ServerCommand command) {
         commands.put(command.getName(), command);
+    }
+
+    private static class Credentials {
+        private final String username;
+        private final String password;
+
+        private Credentials(String username, String password) {
+            this.username = username;
+            this.password = password;
+        }
     }
 }

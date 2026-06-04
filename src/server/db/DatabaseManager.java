@@ -16,26 +16,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * PostgreSQL gateway responsible for schema initialization, users, and organization persistence.
- */
 public class DatabaseManager {
     private final DatabaseConfig config;
 
-    /**
-     * Creates a database gateway.
-     *
-     * @param config database configuration
-     */
     public DatabaseManager(DatabaseConfig config) {
         this.config = config;
     }
 
-    /**
-     * Creates required database sequence and tables when they do not exist.
-     *
-     * @throws Exception when schema initialization fails
-     */
     public void initialize() throws Exception {
         try (Connection connection = getConnection(); Statement statement = connection.createStatement()) {
             statement.executeUpdate("CREATE SEQUENCE IF NOT EXISTS organization_id_seq START WITH 1 INCREMENT BY 1");
@@ -56,14 +43,6 @@ public class DatabaseManager {
         }
     }
 
-    /**
-     * Stores a new user if the username is still available.
-     *
-     * @param username username
-     * @param passwordHash SHA-224 password hash
-     * @return true when a new row was inserted
-     * @throws Exception when the database operation fails
-     */
     public boolean createUser(String username, String passwordHash) throws Exception {
         try (Connection connection = getConnection();
              PreparedStatement statement = connection.prepareStatement(
@@ -74,14 +53,6 @@ public class DatabaseManager {
         }
     }
 
-    /**
-     * Checks whether a username/password hash pair exists.
-     *
-     * @param username username
-     * @param passwordHash SHA-224 password hash
-     * @return true when credentials match a stored user
-     * @throws Exception when the database operation fails
-     */
     public boolean authenticate(String username, String passwordHash) throws Exception {
         try (Connection connection = getConnection();
              PreparedStatement statement = connection.prepareStatement(
@@ -94,12 +65,6 @@ public class DatabaseManager {
         }
     }
 
-    /**
-     * Loads all stored organizations for the server's in-memory collection.
-     *
-     * @return organizations stored in PostgreSQL
-     * @throws Exception when loading fails
-     */
     public List<Organization> loadOrganizations() throws Exception {
         List<Organization> organizations = new ArrayList<>();
         try (Connection connection = getConnection();
@@ -110,14 +75,6 @@ public class DatabaseManager {
         return organizations;
     }
 
-    /**
-     * Inserts an organization and returns the stored object with database-generated fields.
-     *
-     * @param source organization payload from the client
-     * @param ownerUsername user that owns the object
-     * @return stored organization with generated id and creation date
-     * @throws Exception when insertion fails
-     */
     public Organization insertOrganization(Organization source, String ownerUsername) throws Exception {
         LocalDateTime creationDate = LocalDateTime.now();
         try (Connection connection = getConnection();
@@ -132,15 +89,6 @@ public class DatabaseManager {
         }
     }
 
-    /**
-     * Updates an owned organization.
-     *
-     * @param id organization id
-     * @param source replacement payload
-     * @param ownerUsername owner username
-     * @return updated organization or empty when the row is not owned by the user
-     * @throws Exception when update fails
-     */
     public Optional<Organization> updateOrganization(long id, Organization source,
                                                      String ownerUsername) throws Exception {
         LocalDateTime creationDate = LocalDateTime.now();
@@ -156,14 +104,6 @@ public class DatabaseManager {
         }
     }
 
-    /**
-     * Deletes an owned organization.
-     *
-     * @param id organization id
-     * @param ownerUsername owner username
-     * @return true when a row was deleted
-     * @throws Exception when delete fails
-     */
     public boolean deleteOrganization(long id, String ownerUsername) throws Exception {
         try (Connection connection = getConnection();
              PreparedStatement statement = connection.prepareStatement(

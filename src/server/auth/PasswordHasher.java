@@ -5,16 +5,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Objects;
 
-/**
- * Hashes passwords before they are stored or compared by the server.
- */
 public final class PasswordHasher {
-    /**
-     * Hashes a plain-text password with SHA-224 and returns a hexadecimal string.
-     *
-     * @param password plain-text password
-     * @return SHA-224 hash encoded as hexadecimal
-     */
     public String hash(String password) {
         Objects.requireNonNull(password, "password must not be null");
         try {

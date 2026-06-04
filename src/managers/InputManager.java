@@ -9,27 +9,13 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Scanner;
 
-/**
- * Reads organization payloads from interactive client console input.
- */
 public class InputManager {
     private final Scanner scanner;
 
-    /**
-     * Creates an input manager backed by a scanner.
-     *
-     * @param scanner console scanner
-     */
     public InputManager(Scanner scanner) {
         this.scanner = scanner;
     }
-
-    /**
-     * Reads one organization from console prompts.
-     *
-     * @param id temporary client-side id; the server replaces it for persisted objects
-     * @return organization payload
-     */
+  
     public Organization readOrganization(long id) {
         String name = readName();
         Long x = readLong();

@@ -21,9 +21,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Scanner;
 
-/**
- * Client entry point that reads console commands, sends requests to the server, and prints responses.
- */
 public final class ClientMain {
     private static final int DEFAULT_PORT = 5555;
     private static final int RETRIES = 3;
@@ -32,13 +29,6 @@ public final class ClientMain {
 
     private ClientMain() {
     }
-
-    /**
-     * Starts the interactive UDP client.
-     *
-     * @param args optional server host and port
-     * @throws Exception when the UDP channel cannot be opened or input cannot be processed
-     */
     public static void main(String[] args) throws Exception {
         String host = args.length > 0 ? args[0] : "localhost";
         int port = args.length > 1 ? Integer.parseInt(args[1]) : DEFAULT_PORT;

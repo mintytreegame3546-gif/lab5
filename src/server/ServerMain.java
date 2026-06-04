@@ -22,9 +22,6 @@ import java.util.logging.LogRecord;
 import java.util.logging.SimpleFormatter;
 import java.util.logging.StreamHandler;
 
-/**
- * Server entry point that initializes PostgreSQL storage and handles UDP requests concurrently.
- */
 public final class ServerMain {
     private static final Logger LOGGER = Logger.getLogger(ServerMain.class.getName());
     private static final int DEFAULT_PORT = 5555;
@@ -38,12 +35,6 @@ public final class ServerMain {
     private ServerMain() {
     }
 
-    /**
-     * Starts the server.
-     *
-     * @param args optional database config path and UDP port
-     * @throws Exception when database initialization or socket binding fails
-     */
     public static void main(String[] args) throws Exception {
         ServerSettings settings = ServerSettings.fromArgs(args);
         DatabaseManager databaseManager = new DatabaseManager(DatabaseConfig.fromFile(settings.configPath()));
