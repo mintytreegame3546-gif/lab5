@@ -28,6 +28,7 @@ public class FilterNameServerCommand implements ServerCommand {
                 .sorted(Comparator.comparing(Organization::getName))
                 .collect(Collectors.toList());
         if (found.isEmpty()) return new CommandResponse(false, "Name not found", found);
-        return new CommandResponse(true, found.stream().map(Organization::toString).collect(Collectors.joining("\n")), found);
+        String message = found.stream().map(Organization::toString).collect(Collectors.joining("\n"));
+        return new CommandResponse(true, message, found);
     }
 }

@@ -8,7 +8,9 @@ final class ServerCommandSupport {
 
     static String validateOrganization(Organization organization) {
         if (organization == null) return "Error: organization payload is required";
-        if (organization.getName() == null || organization.getName().trim().isEmpty()) return "Error: organization name cannot be empty";
+        if (organization.getName() == null || organization.getName().trim().isEmpty()) {
+            return "Error: organization name cannot be empty";
+        }
         if (organization.getCoordinates() == null) return "Error: coordinates are required";
         if (organization.getCoordinates().getX() == null) return "Error: coordinates.x is required";
         if (organization.getCoordinates().getY() == null) return "Error: coordinates.y is required";

@@ -24,6 +24,7 @@ public class ShowServerCommand implements ServerCommand {
                 .sorted(Comparator.comparing(Organization::getName))
                 .collect(Collectors.toList());
         if (sorted.isEmpty()) return new CommandResponse(true, "Collection is empty", sorted);
-        return new CommandResponse(true, sorted.stream().map(Organization::toString).collect(Collectors.joining("\n")), sorted);
+        String message = sorted.stream().map(Organization::toString).collect(Collectors.joining("\n"));
+        return new CommandResponse(true, message, sorted);
     }
 }

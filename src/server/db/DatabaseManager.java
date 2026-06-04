@@ -14,6 +14,7 @@ import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public class DatabaseManager {
     private final DatabaseConfig config;
@@ -78,8 +79,8 @@ public class DatabaseManager {
         LocalDateTime creationDate = LocalDateTime.now();
         try (Connection connection = getConnection();
              PreparedStatement statement = connection.prepareStatement(
-                     "INSERT INTO organizations(name, x, y, creation_date, annual_turnover, type, street, zip_code, owner_username) " +
-                             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id")) {
+                     "INSERT INTO organizations(name, x, y, creation_date, annual_turnover, type, "
+                             + "street, zip_code, owner_username) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id")) {
             fillInsertFields(statement, source, creationDate, ownerUsername);
             try (ResultSet resultSet = statement.executeQuery()) {
                 resultSet.next();
@@ -88,17 +89,18 @@ public class DatabaseManager {
         }
     }
 
-    public Organization updateOrganization(long id, Organization source, String ownerUsername) throws Exception {
+    public Optional<Organization> updateOrganization(long id, Organization source,
+                                                     String ownerUsername) throws Exception {
         LocalDateTime creationDate = LocalDateTime.now();
         try (Connection connection = getConnection();
              PreparedStatement statement = connection.prepareStatement(
-                     "UPDATE organizations SET name = ?, x = ?, y = ?, creation_date = ?, annual_turnover = ?, type = ?, street = ?, zip_code = ? " +
-                             "WHERE id = ? AND owner_username = ?")) {
+                     "UPDATE organizations SET name = ?, x = ?, y = ?, creation_date = ?, annual_turnover = ?, "
+                             + "type = ?, street = ?, zip_code = ? WHERE id = ? AND owner_username = ?")) {
             fillUpdateFields(statement, source, creationDate);
             statement.setLong(9, id);
             statement.setString(10, ownerUsername);
-            if (statement.executeUpdate() == 0) return null;
-            return copyWithServerFields(source, id, creationDate, ownerUsername);
+            if (statement.executeUpdate() == 0) return Optional.empty();
+            return Optional.of(copyWithServerFields(source, id, creationDate, ownerUsername));
         }
     }
 
@@ -118,7 +120,8 @@ public class DatabaseManager {
         statement.setString(9, ownerUsername);
     }
 
-    private void fillUpdateFields(PreparedStatement statement, Organization source, LocalDateTime creationDate) throws Exception {
+    private void fillUpdateFields(PreparedStatement statement, Organization source,
+                                  LocalDateTime creationDate) throws Exception {
         statement.setString(1, source.getName());
         statement.setLong(2, source.getCoordinates().getX());
         statement.setDouble(3, source.getCoordinates().getY());
@@ -139,14 +142,16 @@ public class DatabaseManager {
                 resultSet.getString("owner_username"));
     }
 
-    private Organization copyWithServerFields(Organization source, long id, LocalDateTime creationDate, String ownerUsername) {
+    private Organization copyWithServerFields(Organization source, long id, LocalDateTime creationDate,
+                                              String ownerUsername) {
         return new Organization(id, source.getName(),
                 new Coordinates(source.getCoordinates().getX(), source.getCoordinates().getY()),
                 creationDate, source.getAnnualTurnover(), source.getType(),
-                new Address(source.getOfficialAddress().getStreet(), source.getOfficialAddress().getZipCode()), ownerUsername);
+                new Address(source.getOfficialAddress().getStreet(), source.getOfficialAddress().getZipCode()),
+                ownerUsername);
     }
 
     private Connection getConnection() throws Exception {
-        return DriverManager.getConnection(config.getUrl(), config.getUsername(), config.getPassword());
+        return DriverManager.getConnection(config.url(), config.username(), config.password());
     }
 }

@@ -16,7 +16,7 @@ public class RemoveLowerServerCommand implements ServerCommand {
     }
 
     public String getName() { return "remove_lower"; }
-    public String getDescription() { return "Remove owned organizations whose annual turnover is lower than the given organization"; }
+    public String getDescription() { return "Remove owned organizations lower than the given organization"; }
 
     public CommandResponse execute(CommandRequest request) throws Exception {
         String usernameError = ServerCommandSupport.requireUsername(request);

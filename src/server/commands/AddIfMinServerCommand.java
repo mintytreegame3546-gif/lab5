@@ -16,7 +16,7 @@ public class AddIfMinServerCommand implements ServerCommand {
     }
 
     public String getName() { return "add_if_min"; }
-    public String getDescription() { return "Add a new organization if its annual turnover is less than the minimum in collection"; }
+    public String getDescription() { return "Add a new organization if it is lower than the minimum"; }
 
     public CommandResponse execute(CommandRequest request) throws Exception {
         String usernameError = ServerCommandSupport.requireUsername(request);

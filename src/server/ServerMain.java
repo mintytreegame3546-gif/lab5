@@ -1,6 +1,7 @@
 package server;
 
 import managers.CollectionManager;
+import network.CommandRequest;
 import network.CommandResponse;
 import network.SerializationUtils;
 import server.db.DatabaseConfig;
@@ -21,84 +22,96 @@ import java.util.logging.LogRecord;
 import java.util.logging.SimpleFormatter;
 import java.util.logging.StreamHandler;
 
-public class ServerMain {
-    private static final Logger logger = Logger.getLogger(ServerMain.class.getName());
+public final class ServerMain {
+    private static final Logger LOGGER = Logger.getLogger(ServerMain.class.getName());
     private static final int DEFAULT_PORT = 5555;
     private static final int READER_THREADS = 4;
+    private static final int SOCKET_TIMEOUT_MILLIS = 500;
 
     static {
         configureLoggerToStdout();
     }
 
-    public static void main(String[] args) throws Exception {
-        String configPath = args.length > 0 ? args[0] : "db.properties";
-        int port = args.length > 1 ? Integer.parseInt(args[1]) : DEFAULT_PORT;
+    private ServerMain() {
+    }
 
-        DatabaseManager databaseManager = new DatabaseManager(DatabaseConfig.fromFile(configPath));
+    public static void main(String[] args) throws Exception {
+        ServerSettings settings = ServerSettings.fromArgs(args);
+        DatabaseManager databaseManager = new DatabaseManager(DatabaseConfig.fromFile(settings.configPath()));
         databaseManager.initialize();
+
         CollectionManager collectionManager = new CollectionManager();
         collectionManager.addAll(databaseManager.loadOrganizations());
         ServerCommandProcessor processor = new ServerCommandProcessor(collectionManager, databaseManager);
 
-        logger.info("Server startup on port " + port + " with PostgreSQL config " + configPath);
-        System.out.println("Server started. Type 'exit' to stop. Collection changes are saved in PostgreSQL immediately.");
+        LOGGER.info("Server startup on port " + settings.port() + " with PostgreSQL config " + settings.configPath());
+        System.out.println("Server started. Type 'exit' to stop. Changes are saved in PostgreSQL immediately.");
+        runServer(settings.port(), processor);
+    }
 
+    private static void runServer(int port, ServerCommandProcessor processor) throws Exception {
         ExecutorService readPool = Executors.newFixedThreadPool(READER_THREADS);
         ForkJoinPool processingPool = new ForkJoinPool();
         ForkJoinPool sendingPool = new ForkJoinPool();
         try (DatagramSocket socket = new DatagramSocket(port);
              BufferedReader console = new BufferedReader(new InputStreamReader(System.in))) {
-            socket.setSoTimeout(500);
-            ConnectionReceiver connectionReceiver = new ConnectionReceiver(logger);
-            RequestReader requestReader = new RequestReader();
-            ResponseSender responseSender = new ResponseSender();
-            byte[] buffer = new byte[SerializationUtils.BUFFER_SIZE];
-            boolean running = true;
-            while (running) {
-                try {
-                    DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-                    socket.receive(packet);
-                    DatagramPacket requestPacket = copyPacket(packet);
-                    String client = connectionReceiver.register(requestPacket);
-                    logger.info("Request received from " + client);
-                    readPool.submit(() -> handleRequest(processor, requestReader, responseSender,
-                            processingPool, sendingPool, socket, requestPacket, client));
-                } catch (SocketTimeoutException ignored) {
-                    if (console.ready() && "exit".equals(console.readLine().trim())) running = false;
-                }
-            }
+            socket.setSoTimeout(SOCKET_TIMEOUT_MILLIS);
+            ServerRuntime runtime = new ServerRuntime(processor, new RequestReader(), new ResponseSender(), socket);
+            receiveRequests(console, readPool, processingPool, sendingPool, runtime);
         } finally {
             readPool.shutdownNow();
             processingPool.shutdownNow();
             sendingPool.shutdownNow();
-            logger.info("Server stopped");
+            LOGGER.info("Server stopped");
         }
     }
 
-    private static void handleRequest(ServerCommandProcessor processor, RequestReader requestReader,
-                                      ResponseSender responseSender, ForkJoinPool processingPool,
-                                      ForkJoinPool sendingPool, DatagramSocket socket,
-                                      DatagramPacket packet, String client) {
-        try {
-            var request = requestReader.read(packet);
-            processingPool.submit(() -> {
-                CommandResponse response = processor.process(request);
-                sendingPool.submit(() -> sendResponse(responseSender, socket, packet, response, client));
-            });
-        } catch (Exception e) {
-            logger.log(Level.WARNING, "Failed to read request", e);
-            sendingPool.submit(() -> sendResponse(responseSender, socket, packet,
-                    new CommandResponse(false, "Error: failed to read request: " + e.getMessage()), client));
+    private static void receiveRequests(BufferedReader console, ExecutorService readPool, ForkJoinPool processingPool,
+                                        ForkJoinPool sendingPool, ServerRuntime runtime) throws Exception {
+        ConnectionReceiver connectionReceiver = new ConnectionReceiver(LOGGER);
+        byte[] buffer = new byte[SerializationUtils.BUFFER_SIZE];
+        boolean running = true;
+        while (running) {
+            try {
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                runtime.socket().receive(packet);
+                DatagramPacket requestPacket = copyPacket(packet);
+                String client = connectionReceiver.register(requestPacket);
+                LOGGER.info("Request received from " + client);
+                RequestTask task = new RequestTask(runtime, processingPool, sendingPool, requestPacket, client);
+                readPool.submit(() -> handleRequest(task));
+            } catch (SocketTimeoutException ignored) {
+                running = !shouldStop(console);
+            }
         }
     }
 
-    private static void sendResponse(ResponseSender responseSender, DatagramSocket socket,
-                                     DatagramPacket packet, CommandResponse response, String client) {
+    private static boolean shouldStop(BufferedReader console) throws Exception {
+        return console.ready() && "exit".equals(console.readLine().trim());
+    }
+
+    private static void handleRequest(RequestTask task) {
         try {
-            responseSender.send(socket, packet, response);
-            logger.info("Response sent to " + client);
+            var request = task.runtime().requestReader().read(task.packet());
+            task.processingPool().submit(() -> processRequest(task, request));
         } catch (Exception e) {
-            logger.log(Level.WARNING, "Failed to send response", e);
+            LOGGER.log(Level.WARNING, "Failed to read request from " + task.client(), e);
+            CommandResponse response = new CommandResponse(false, "Error: failed to read request: " + e.getMessage());
+            task.sendingPool().submit(() -> sendResponse(task, response));
+        }
+    }
+
+    private static void processRequest(RequestTask task, CommandRequest request) {
+        CommandResponse response = task.runtime().processor().process(request);
+        task.sendingPool().submit(() -> sendResponse(task, response));
+    }
+
+    private static void sendResponse(RequestTask task, CommandResponse response) {
+        try {
+            task.runtime().responseSender().send(task.runtime().socket(), task.packet(), response);
+            LOGGER.info("Response sent to " + task.client());
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Failed to send response to " + task.client(), e);
         }
     }
 
@@ -109,8 +122,8 @@ public class ServerMain {
     }
 
     private static void configureLoggerToStdout() {
-        logger.setUseParentHandlers(false);
-        for (Handler handler : logger.getHandlers()) logger.removeHandler(handler);
+        LOGGER.setUseParentHandlers(false);
+        for (Handler handler : LOGGER.getHandlers()) LOGGER.removeHandler(handler);
         StreamHandler stdoutHandler = new StreamHandler(System.out, new SimpleFormatter()) {
             @Override
             public synchronized void publish(LogRecord record) {
@@ -119,7 +132,23 @@ public class ServerMain {
             }
         };
         stdoutHandler.setLevel(Level.ALL);
-        logger.addHandler(stdoutHandler);
-        logger.setLevel(Level.INFO);
+        LOGGER.addHandler(stdoutHandler);
+        LOGGER.setLevel(Level.INFO);
+    }
+
+    private record ServerSettings(String configPath, int port) {
+        private static ServerSettings fromArgs(String[] args) {
+            String configPath = args.length > 0 ? args[0] : "db.properties";
+            int port = args.length > 1 ? Integer.parseInt(args[1]) : DEFAULT_PORT;
+            return new ServerSettings(configPath, port);
+        }
+    }
+
+    private record ServerRuntime(ServerCommandProcessor processor, RequestReader requestReader,
+                                 ResponseSender responseSender, DatagramSocket socket) {
+    }
+
+    private record RequestTask(ServerRuntime runtime, ForkJoinPool processingPool, ForkJoinPool sendingPool,
+                               DatagramPacket packet, String client) {
     }
 }

@@ -1,5 +1,4 @@
 package server.commands;
-
 import network.CommandRequest;
 import network.CommandResponse;
 

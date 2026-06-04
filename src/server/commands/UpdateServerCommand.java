@@ -36,8 +36,8 @@ public class UpdateServerCommand implements ServerCommand {
         String validation = ServerCommandSupport.validateOrganization(request.getOrganization());
         if (validation != null) return new CommandResponse(false, validation);
         var updated = databaseManager.updateOrganization(id, request.getOrganization(), request.getUsername());
-        if (updated == null) return new CommandResponse(false, "Error: you can modify only your own organizations");
-        collectionManager.replace(id, updated);
+        if (updated.isEmpty()) return new CommandResponse(false, "Error: you can modify only your own organizations");
+        collectionManager.replace(id, updated.get());
         return new CommandResponse(true, "Organization with ID " + id + " updated!");
     }
 }

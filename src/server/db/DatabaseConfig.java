@@ -4,15 +4,14 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Properties;
 
-public class DatabaseConfig {
-    private final String url;
-    private final String username;
-    private final String password;
+public record DatabaseConfig(String url, String username, String password) {
+    private static final String DEFAULT_HOST = "pg";
+    private static final String DEFAULT_DATABASE = "studs";
 
-    private DatabaseConfig(String url, String username, String password) {
-        this.url = url;
-        this.username = username;
-        this.password = password;
+    public DatabaseConfig {
+        if (isBlank(url)) throw new IllegalArgumentException("Database URL is required");
+        if (isBlank(username)) throw new IllegalArgumentException("Database username is required");
+        if (isBlank(password)) throw new IllegalArgumentException("Database password is required");
     }
 
     public static DatabaseConfig fromFile(String path) throws IOException {
@@ -20,13 +19,14 @@ public class DatabaseConfig {
         try (FileInputStream input = new FileInputStream(path)) {
             properties.load(input);
         }
-        String host = properties.getProperty("db.host", "pg");
-        String database = properties.getProperty("db.name", "studs");
-        String url = properties.getProperty("db.url", "jdbc:postgresql://" + host + "/" + database);
-        return new DatabaseConfig(url, properties.getProperty("db.user"), properties.getProperty("db.password"));
+        String host = properties.getProperty("db.host", DEFAULT_HOST);
+        String database = properties.getProperty("db.name", DEFAULT_DATABASE);
+        String defaultUrl = "jdbc:postgresql://" + host + "/" + database;
+        return new DatabaseConfig(properties.getProperty("db.url", defaultUrl),
+                properties.getProperty("db.user"), properties.getProperty("db.password"));
     }
 
-    public String getUrl() { return url; }
-    public String getUsername() { return username; }
-    public String getPassword() { return password; }
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
 }
