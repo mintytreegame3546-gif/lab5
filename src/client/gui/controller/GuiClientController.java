@@ -4,11 +4,14 @@ import client.gui.i18n.LocalizationManager;
 import client.gui.model.OrganizationRepository;
 import client.gui.model.OrganizationTableModel;
 import client.gui.net.ClientNetworkService;
+import client.gui.theme.ThemeManager;
 import client.gui.view.AuthFrame;
+import client.gui.view.CommandHistoryDialog;
 import client.gui.view.MainFrame;
 import client.gui.view.OrganizationFormDialog;
 import client.gui.view.VisualizationPanel;
 import data.Organization;
+import network.CommandHistoryEntry;
 import network.CommandResponse;
 
 import javax.swing.JFrame;
@@ -20,6 +23,7 @@ public class GuiClientController {
     private final ClientNetworkService network;
     private final LocalizationManager localization = new LocalizationManager();
     private final OrganizationRepository repository = new OrganizationRepository();
+    private final ThemeManager themeManager = new ThemeManager();
     private AuthFrame authFrame;
     private MainFrame mainFrame;
 
@@ -51,13 +55,14 @@ public class GuiClientController {
         authFrame.dispose();
         OrganizationTableModel tableModel = new OrganizationTableModel(localization);
         VisualizationPanel canvas = new VisualizationPanel(localization);
-        mainFrame = new MainFrame(localization, tableModel, canvas, network.username());
+        mainFrame = new MainFrame(localization, tableModel, canvas, themeManager, network.username());
         mainFrame.onRefresh(this::refresh);
         mainFrame.onAdd(this::add);
         mainFrame.onEdit(() -> mainFrame.selectedOrganization().ifPresentOrElse(this::edit,
                 () -> mainFrame.showError(localization.text("dialog.select"))));
         mainFrame.onDelete(this::deleteSelected);
         mainFrame.onExecute(this::executeRaw);
+        mainFrame.onHistory(this::showHistory);
         mainFrame.onCanvasDetails(this::showDetails);
         mainFrame.onCanvasEdit(this::edit);
         mainFrame.setVisible(true);
@@ -121,6 +126,26 @@ public class GuiClientController {
             updateFromResponse(response);
             mainFrame.setStatus(response.getMessage());
         }, () -> network.executeRaw(line));
+    }
+
+    private void showHistory() {
+        CommandHistoryDialog dialog = new CommandHistoryDialog(mainFrame, localization);
+        dialog.setVisible(true);
+        new SwingWorker<List<CommandHistoryEntry>, Void>() {
+            @Override
+            protected List<CommandHistoryEntry> doInBackground() throws Exception {
+                return network.history();
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    dialog.setHistory(get());
+                } catch (Exception e) {
+                    mainFrame.showError(e.getMessage());
+                }
+            }
+        }.execute();
     }
 
     private void showDetails(Organization organization) {

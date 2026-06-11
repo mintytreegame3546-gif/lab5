@@ -46,6 +46,13 @@ public class Messages_hu extends ListResourceBundle {
                 {"field.turnover", "Éves forgalom"},
                 {"field.type", "Típus"},
                 {"field.street", "Utca"},
+                {"main.history", "Parancselőzmények"},
+                {"history.command", "Parancs"},
+                {"history.arguments", "Argumentumok"},
+                {"history.executedAt", "Végrehajtva"},
+                {"theme.menu", "Téma"},
+                {"theme.light", "Világos mód"},
+                {"theme.dark", "Sötét mód"},
                 {"field.zip", "Irányítószám"}
         };
     }

@@ -46,6 +46,13 @@ public class Messages_de extends ListResourceBundle {
                 {"field.turnover", "Jahresumsatz"},
                 {"field.type", "Typ"},
                 {"field.street", "Straße"},
+                {"main.history", "Befehlsverlauf"},
+                {"history.command", "Befehl"},
+                {"history.arguments", "Argumente"},
+                {"history.executedAt", "Ausgeführt um"},
+                {"theme.menu", "Design"},
+                {"theme.light", "Heller Modus"},
+                {"theme.dark", "Dunkler Modus"},
                 {"field.zip", "Postleitzahl"}
         };
     }

@@ -46,6 +46,13 @@ public class Messages extends ListResourceBundle {
                 {"field.turnover", "Annual turnover"},
                 {"field.type", "Type"},
                 {"field.street", "Street"},
+                {"main.history", "Command History"},
+                {"history.command", "Command"},
+                {"history.arguments", "Arguments"},
+                {"history.executedAt", "Executed at"},
+                {"theme.menu", "Theme"},
+                {"theme.light", "Light Mode"},
+                {"theme.dark", "Dark Mode"},
                 {"field.zip", "Zip code"}
         };
     }

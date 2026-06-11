@@ -64,6 +64,7 @@ public final class ServerMain {
             readPool.shutdownNow();
             processingPool.shutdownNow();
             sendingPool.shutdownNow();
+            processor.shutdown();
             LOGGER.info("Server stopped");
         }
     }

@@ -5,6 +5,7 @@ import data.Organization;
 
 import javax.swing.JPanel;
 import javax.swing.Timer;
+import javax.swing.UIManager;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
@@ -27,7 +28,7 @@ public class VisualizationPanel extends JPanel {
     private Consumer<Organization> edit = organization -> { };
 
     public VisualizationPanel(LocalizationManager localization) {
-        setBackground(Color.WHITE);
+        setBackground(UIManager.getColor("Panel.background"));
         Timer timer = new Timer(40, event -> tick());
         timer.start();
         addMouseListener(new MouseAdapter() {
@@ -53,6 +54,12 @@ public class VisualizationPanel extends JPanel {
         this.organizations = List.copyOf(organizations);
         for (Organization organization : added) animation.put(organization.getId(), 0.1f);
         repaint();
+    }
+
+    @Override
+    public void updateUI() {
+        super.updateUI();
+        setBackground(UIManager.getColor("Panel.background"));
     }
 
     @Override

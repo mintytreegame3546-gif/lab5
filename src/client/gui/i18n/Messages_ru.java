@@ -46,6 +46,13 @@ public class Messages_ru extends ListResourceBundle {
                 {"field.turnover", "Годовой оборот"},
                 {"field.type", "Тип"},
                 {"field.street", "Улица"},
+                {"main.history", "История команд"},
+                {"history.command", "Команда"},
+                {"history.arguments", "Аргументы"},
+                {"history.executedAt", "Время выполнения"},
+                {"theme.menu", "Тема"},
+                {"theme.light", "Светлый режим"},
+                {"theme.dark", "Тёмный режим"},
                 {"field.zip", "Индекс"}
         };
     }

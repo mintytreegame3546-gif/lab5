@@ -1,6 +1,7 @@
 package client.gui.net;
 
 import data.Organization;
+import network.CommandHistoryEntry;
 import network.CommandRequest;
 import network.CommandResponse;
 import network.Credentials;
@@ -74,6 +75,10 @@ public class ClientNetworkService implements Closeable {
 
     public CommandResponse remove(long id) throws Exception {
         return execute("remove_by_id", new String[] {String.valueOf(id)}, null);
+    }
+
+    public List<CommandHistoryEntry> history() throws Exception {
+        return execute("history", new String[0], null).getHistory();
     }
 
     public CommandResponse executeRaw(String line) throws Exception {
