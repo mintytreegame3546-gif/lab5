@@ -1,5 +1,7 @@
 package client;
 
+import client.gui.controller.GuiClientController;
+import client.gui.net.ClientNetworkService;
 import data.Organization;
 import managers.InputManager;
 import network.CommandRequest;
@@ -20,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Scanner;
+import javax.swing.SwingUtilities;
 
 public final class ClientMain {
     private static final int DEFAULT_PORT = 5555;
@@ -30,10 +33,25 @@ public final class ClientMain {
     private ClientMain() {
     }
     public static void main(String[] args) throws Exception {
-        String host = args.length > 0 ? args[0] : "localhost";
-        int port = args.length > 1 ? Integer.parseInt(args[1]) : DEFAULT_PORT;
-        InetSocketAddress server = new InetSocketAddress(host, port);
+        boolean console = args.length > 0 && "--console".equals(args[0]);
+        int offset = console ? 1 : 0;
+        String host = args.length > offset ? args[offset] : "localhost";
+        int port = args.length > offset + 1 ? Integer.parseInt(args[offset + 1]) : DEFAULT_PORT;
+        if (console) {
+            runConsole(host, port);
+            return;
+        }
+        SwingUtilities.invokeLater(() -> {
+            try {
+                new GuiClientController(new ClientNetworkService(host, port)).show();
+            } catch (Exception e) {
+                throw new IllegalStateException("Unable to start GUI client", e);
+            }
+        });
+    }
 
+    private static void runConsole(String host, int port) throws Exception {
+        InetSocketAddress server = new InetSocketAddress(host, port);
         try (DatagramChannel channel = DatagramChannel.open(); Scanner scanner = new Scanner(System.in)) {
             channel.configureBlocking(false);
             runInteractiveLoop(channel, server, new InputManager(scanner), scanner);

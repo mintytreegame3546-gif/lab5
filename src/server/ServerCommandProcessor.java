@@ -32,9 +32,11 @@ public final class ServerCommandProcessor {
     private static final Logger LOGGER = Logger.getLogger(ServerCommandProcessor.class.getName());
 
     private final Map<String, ServerCommand> commands = new LinkedHashMap<>();
+    private final CollectionManager collectionManager;
     private final DatabaseManager databaseManager;
     private final PasswordHasher passwordHasher = new PasswordHasher();
     public ServerCommandProcessor(CollectionManager collectionManager, DatabaseManager databaseManager) {
+        this.collectionManager = collectionManager;
         this.databaseManager = databaseManager;
         register(new InfoServerCommand(collectionManager));
         register(new ShowServerCommand(collectionManager));
@@ -108,17 +110,16 @@ public final class ServerCommandProcessor {
         return credentials.isComplete() ? Optional.of(credentials) : Optional.empty();
     }
 
-    private void register(ServerCommand command) {
-        commands.put(command.getName(), command);
+    public java.util.List<data.Organization> collectionSnapshot() {
+        return collectionManager.getCollection();
     }
 
-    private static class Credentials {
-        private final String username;
-        private final String password;
+    public boolean changesCollection(String commandName) {
+        return java.util.Set.of("add", "update", "remove_by_id", "clear", "remove_first",
+                "add_if_min", "remove_lower").contains(commandName);
+    }
 
-        private Credentials(String username, String password) {
-            this.username = username;
-            this.password = password;
-        }
+    private void register(ServerCommand command) {
+        commands.put(command.getName(), command);
     }
 }
