@@ -4,6 +4,7 @@ import data.Address;
 import data.Coordinates;
 import data.Organization;
 import data.OrganizationType;
+import network.CommandHistoryEntry;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -12,6 +13,7 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -40,6 +42,12 @@ public class DatabaseManager {
                     "street VARCHAR(255)," +
                     "zip_code VARCHAR(64)," +
                     "owner_username VARCHAR(64) NOT NULL REFERENCES users(username))");
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS command_history (" +
+                    "id BIGSERIAL PRIMARY KEY," +
+                    "user_id VARCHAR(64) NOT NULL REFERENCES users(username)," +
+                    "command_name VARCHAR(128) NOT NULL," +
+                    "arguments TEXT NOT NULL," +
+                    "executed_at TIMESTAMP NOT NULL)");
         }
     }
 
@@ -102,6 +110,45 @@ public class DatabaseManager {
             if (statement.executeUpdate() == 0) return Optional.empty();
             return Optional.of(copyWithServerFields(source, id, creationDate, ownerUsername));
         }
+    }
+
+
+    public void insertCommandHistory(String username, String commandName, String[] args) throws Exception {
+        try (Connection connection = getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "INSERT INTO command_history(user_id, command_name, arguments, executed_at) VALUES (?, ?, ?, ?)")) {
+            statement.setString(1, username);
+            statement.setString(2, commandName);
+            statement.setString(3, historyArguments(commandName, args));
+            statement.setTimestamp(4, Timestamp.valueOf(LocalDateTime.now()));
+            statement.executeUpdate();
+        }
+    }
+
+    private String historyArguments(String commandName, String[] args) {
+        String[] safeArgs = args == null ? new String[0] : Arrays.copyOf(args, args.length);
+        if (("login".equals(commandName) || "register".equals(commandName)) && safeArgs.length > 0) {
+            return safeArgs[0];
+        }
+        return String.join(" ", safeArgs);
+    }
+
+    public List<CommandHistoryEntry> loadCommandHistory(String username) throws Exception {
+        List<CommandHistoryEntry> history = new ArrayList<>();
+        try (Connection connection = getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "SELECT command_name, arguments, executed_at FROM command_history "
+                             + "WHERE user_id = ? ORDER BY executed_at DESC")) {
+            statement.setString(1, username);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    history.add(new CommandHistoryEntry(resultSet.getString("command_name"),
+                            resultSet.getString("arguments"),
+                            resultSet.getTimestamp("executed_at").toLocalDateTime()));
+                }
+            }
+        }
+        return history;
     }
 
     public boolean deleteOrganization(long id, String ownerUsername) throws Exception {

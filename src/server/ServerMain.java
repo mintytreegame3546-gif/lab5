@@ -11,6 +11,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.InetSocketAddress;
 import java.net.SocketTimeoutException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -56,19 +57,20 @@ public final class ServerMain {
         try (DatagramSocket socket = new DatagramSocket(port);
              BufferedReader console = new BufferedReader(new InputStreamReader(System.in))) {
             socket.setSoTimeout(SOCKET_TIMEOUT_MILLIS);
-            ServerRuntime runtime = new ServerRuntime(processor, new RequestReader(), new ResponseSender(), socket);
+            ServerRuntime runtime = new ServerRuntime(processor, new RequestReader(), new ResponseSender(), socket,
+                    new ConnectionReceiver(LOGGER));
             receiveRequests(console, readPool, processingPool, sendingPool, runtime);
         } finally {
             readPool.shutdownNow();
             processingPool.shutdownNow();
             sendingPool.shutdownNow();
+            processor.shutdown();
             LOGGER.info("Server stopped");
         }
     }
 
     private static void receiveRequests(BufferedReader console, ExecutorService readPool, ForkJoinPool processingPool,
                                         ForkJoinPool sendingPool, ServerRuntime runtime) throws Exception {
-        ConnectionReceiver connectionReceiver = new ConnectionReceiver(LOGGER);
         byte[] buffer = new byte[SerializationUtils.BUFFER_SIZE];
         boolean running = true;
         while (running) {
@@ -76,7 +78,7 @@ public final class ServerMain {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 runtime.socket().receive(packet);
                 DatagramPacket requestPacket = copyPacket(packet);
-                String client = connectionReceiver.register(requestPacket);
+                String client = runtime.connectionReceiver().register(requestPacket);
                 LOGGER.info("Request received from " + client);
                 RequestTask task = new RequestTask(runtime, processingPool, sendingPool, requestPacket, client);
                 readPool.submit(() -> handleRequest(task));
@@ -104,6 +106,9 @@ public final class ServerMain {
     private static void processRequest(RequestTask task, CommandRequest request) {
         CommandResponse response = task.runtime().processor().process(request);
         task.sendingPool().submit(() -> sendResponse(task, response));
+        if (response.isSuccess() && task.runtime().processor().changesCollection(request.getCommandName())) {
+            task.sendingPool().submit(() -> broadcastCollection(task.runtime()));
+        }
     }
 
     private static void sendResponse(RequestTask task, CommandResponse response) {
@@ -112,6 +117,20 @@ public final class ServerMain {
             LOGGER.info("Response sent to " + task.client());
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, "Failed to send response to " + task.client(), e);
+        }
+    }
+
+    private static void broadcastCollection(ServerRuntime runtime) {
+        CommandResponse update = new CommandResponse(true, "Collection updated",
+                runtime.processor().collectionSnapshot(), true);
+        for (InetSocketAddress client : runtime.connectionReceiver().clients()) {
+            try {
+                byte[] bytes = SerializationUtils.serialize(update);
+                DatagramPacket packet = new DatagramPacket(bytes, bytes.length, client.getAddress(), client.getPort());
+                runtime.socket().send(packet);
+            } catch (Exception e) {
+                LOGGER.log(Level.WARNING, "Failed to broadcast collection update to " + client, e);
+            }
         }
     }
 
@@ -145,7 +164,8 @@ public final class ServerMain {
     }
 
     private record ServerRuntime(ServerCommandProcessor processor, RequestReader requestReader,
-                                 ResponseSender responseSender, DatagramSocket socket) {
+                                 ResponseSender responseSender, DatagramSocket socket,
+                                 ConnectionReceiver connectionReceiver) {
     }
 
     private record RequestTask(ServerRuntime runtime, ForkJoinPool processingPool, ForkJoinPool sendingPool,

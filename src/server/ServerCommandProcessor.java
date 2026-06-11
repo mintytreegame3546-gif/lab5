@@ -11,6 +11,7 @@ import server.commands.ClearServerCommand;
 import server.commands.ExecuteScriptServerCommand;
 import server.commands.FilterNameServerCommand;
 import server.commands.HelpServerCommand;
+import server.commands.HistoryServerCommand;
 import server.commands.InfoServerCommand;
 import server.commands.PrintAddressAscServerCommand;
 import server.commands.RemoveByIdServerCommand;
@@ -25,6 +26,8 @@ import server.db.DatabaseManager;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -32,9 +35,12 @@ public final class ServerCommandProcessor {
     private static final Logger LOGGER = Logger.getLogger(ServerCommandProcessor.class.getName());
 
     private final Map<String, ServerCommand> commands = new LinkedHashMap<>();
+    private final CollectionManager collectionManager;
     private final DatabaseManager databaseManager;
     private final PasswordHasher passwordHasher = new PasswordHasher();
+    private final ExecutorService historyLogger = Executors.newSingleThreadExecutor();
     public ServerCommandProcessor(CollectionManager collectionManager, DatabaseManager databaseManager) {
+        this.collectionManager = collectionManager;
         this.databaseManager = databaseManager;
         register(new InfoServerCommand(collectionManager));
         register(new ShowServerCommand(collectionManager));
@@ -48,18 +54,23 @@ public final class ServerCommandProcessor {
         register(new SumTurnoverServerCommand(collectionManager));
         register(new FilterNameServerCommand(collectionManager));
         register(new PrintAddressAscServerCommand(collectionManager));
+        register(new HistoryServerCommand(databaseManager));
         register(new ExecuteScriptServerCommand(commands));
         register(new HelpServerCommand(commands));
     }
 
     public CommandResponse process(CommandRequest request) {
         try {
-            if ("register".equals(request.getCommandName())) return registerUser(request);
-            if ("login".equals(request.getCommandName())) return loginUser(request);
-            if (!isAuthorized(request.getCredentials())) {
-                return new CommandResponse(false, "Error: authorization is required. Use login or register first");
+            CommandResponse response;
+            if ("register".equals(request.getCommandName())) response = registerUser(request);
+            else if ("login".equals(request.getCommandName())) response = loginUser(request);
+            else if (!isAuthorized(request.getCredentials())) {
+                response = new CommandResponse(false, "Error: authorization is required. Use login or register first");
+            } else {
+                response = executeCommand(request);
             }
-            return executeCommand(request);
+            logHistory(request);
+            return response;
         } catch (NumberFormatException e) {
             return new CommandResponse(false, "Error: Please enter a valid number");
         } catch (Exception e) {
@@ -108,17 +119,32 @@ public final class ServerCommandProcessor {
         return credentials.isComplete() ? Optional.of(credentials) : Optional.empty();
     }
 
-    private void register(ServerCommand command) {
-        commands.put(command.getName(), command);
+    private void logHistory(CommandRequest request) {
+        Credentials credentials = request.getCredentials();
+        if (!credentials.isComplete()) return;
+        historyLogger.submit(() -> {
+            try {
+                databaseManager.insertCommandHistory(credentials.username(), request.getCommandName(), request.getArgs());
+            } catch (Exception e) {
+                LOGGER.log(Level.WARNING, "Failed to log command history", e);
+            }
+        });
     }
 
-    private static class Credentials {
-        private final String username;
-        private final String password;
+    public void shutdown() {
+        historyLogger.shutdownNow();
+    }
 
-        private Credentials(String username, String password) {
-            this.username = username;
-            this.password = password;
-        }
+    public java.util.List<data.Organization> collectionSnapshot() {
+        return collectionManager.getCollection();
+    }
+
+    public boolean changesCollection(String commandName) {
+        return java.util.Set.of("add", "update", "remove_by_id", "clear", "remove_first",
+                "add_if_min", "remove_lower").contains(commandName);
+    }
+
+    private void register(ServerCommand command) {
+        commands.put(command.getName(), command);
     }
 }
